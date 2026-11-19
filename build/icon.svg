@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="sea" gradientUnits="userSpaceOnUse" x1="100" y1="100" x2="924" y2="924">
+      <stop offset="0" stop-color="#3a9bff"/>
+      <stop offset="1" stop-color="#0b4fd8"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#sea)"/>
+  <!-- a surfboard fin: curved leading edge sweeping back to a rounded tip, concave trailing edge -->
+  <path fill="#fff" d="M700 772 C690 560 572 362 336 238 C306 222 290 244 304 266 C392 402 430 580 372 772 Q368 786 384 786 H684 Q702 786 700 772 Z"/>
+</svg>
