@@ -18,6 +18,8 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 - Folders, split view (up to 4 pages side by side), and drag and drop for everything, with animations when folders open and tabs are added or closed
 - Tab switcher: hold ⌃ and press Tab to step through recent tabs as thumbnails
 - Live folders that follow an RSS/Atom feed or a GitHub repo's pull requests and issues
+- Bookmarks in Library → Bookmarks: folders, search, drag to reorganize, and bookmarks.html import/export (right-click the ★ in the address bar to bookmark a page)
+- Profiles: fully separate setups (tabs, logins, settings), each opened as its own Surf window from Surf → Open Profile or Settings → Profiles
 - Shelf: a tray above the sidebar's bottom bar for downloads, screenshots, and anything you drop on it (tabs, links, images, text); items can be dragged back out
 
 **Browsing**
@@ -67,6 +69,8 @@ This builds `dist/mac-arm64/Surf.app`, which can be copied to `/Applications`. T
 
 ## Keyboard shortcuts
 
+These are the defaults; change any of them in Settings → Keyboard shortcuts.
+
 | Shortcut | Action |
 | --- | --- |
 | ⌘T | New tab / command bar |
@@ -84,6 +88,7 @@ This builds `dist/mac-arm64/Surf.app`, which can be copied to `/Applications`. T
 | ⌥⌘N | Little window |
 | ⇧⌘2 | Capture to easel |
 | ⌘F | Find in page |
+| ⌥⌘B | Bookmarks |
 | ⌘+ / ⌘− | Zoom in / out (⌘0 resets) |
 | ⇧⌘R | Reader view |
 | ⇧ over a link | AI link preview |

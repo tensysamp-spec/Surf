@@ -65,8 +65,10 @@ function update(syncUrl = false) {
   const canFavorite = isWeb && !U.isNewTabUrl(url);
   e.star.disabled = !canFavorite;
   const isFav = !!entry && T().isFavorite(entry.id);
+  const isMarked = canFavorite && ctx.bookmarks.isBookmarked(url);
   e.star.classList.toggle('active', isFav);
-  e.star.title = isFav ? 'Remove from favorites' : 'Add to favorites';
+  e.star.classList.toggle('bookmarked', isMarked);
+  e.star.title = `${isFav ? 'Remove from favorites' : 'Add to favorites'}${isMarked ? ' · Bookmarked' : ''} — right-click for bookmarks`;
 
   const reader = U.$('reader-btn');
   reader.disabled = !(isWeb && (tab.readerable || tab.readerEl));

@@ -1,4 +1,4 @@
-// Library drawer: History, Archive, Downloads, Notes & Easels, Highlights, Reading list.
+// Library drawer: Bookmarks, History, Archive, Downloads, Notes & Easels, Highlights, Reading list.
 
 const { ipcRenderer } = require('electron');
 const ctx = require('./ctx');
@@ -306,7 +306,7 @@ function renderNotes(list, query) {
   }
 }
 
-const CLEAR_LABELS = { history: 'Clear', archive: 'Clear', downloads: 'Clear list', notes: null, highlights: null, reading: 'Clear read' };
+const CLEAR_LABELS = { history: 'Clear', archive: 'Clear', downloads: 'Clear list', notes: null, highlights: null, bookmarks: null, reading: 'Clear read' };
 const SEARCH_LABELS = { notes: 'notes & easels', reading: 'reading list' };
 const searchPlaceholder = (tab) => `Search ${SEARCH_LABELS[tab] || tab}`;
 
@@ -318,7 +318,8 @@ function render() {
   const clearBtn = U.$('library-clear-btn');
   clearBtn.hidden = !CLEAR_LABELS[current];
   clearBtn.querySelector('span').textContent = ` ${CLEAR_LABELS[current] || ''}`;
-  if (current === 'history') renderHistory(list, query);
+  if (current === 'bookmarks') ctx.bookmarks.render(list, query);
+  else if (current === 'history') renderHistory(list, query);
   else if (current === 'archive') renderArchive(list, query);
   else if (current === 'downloads') renderDownloads(list, query);
   else if (current === 'highlights') renderHighlights(list, query);
@@ -389,7 +390,12 @@ function setup() {
   ctx.readingList.updateBadge();
 }
 
+// Re-render the open tab after its data changed elsewhere (e.g. bookmarks)
+function refresh() {
+  if (isOpen()) render();
+}
+
 ctx.library = {
-  setup, open, close, toggle, refresh, isOpen, addHistory, updateHistory, clearHistory, importHistory,
+  setup, open, close, toggle, isOpen, refresh, addHistory, updateHistory, clearHistory, importHistory,
   history: () => history,
 };

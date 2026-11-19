@@ -5,9 +5,13 @@ const fs = require('fs');
 // Show "Surf" in the app menu, but keep the profile in the folder it has always used
 // (the app was called "Browser" before), so tabs and settings carry over.
 // SURF_PROFILE_DIR points it at a separate profile instead (used to record demo videos).
-const profileDir = process.env.SURF_PROFILE_DIR || path.join(app.getPath('appData'), 'Browser');
+// Named profiles (Settings → Profiles) are separate folders that run as their own Surf process.
+const defaultProfileDir = path.join(app.getPath('appData'), 'Browser');
+const profileDir = process.env.SURF_PROFILE_DIR || defaultProfileDir;
 app.setName('Surf');
 app.setPath('userData', profileDir);
+
+const shortcuts = require('./main/shortcuts');
 
 /* ------------------------------------------------------------------ */
 /* Window registry & message routing                                   */
@@ -57,12 +61,23 @@ const M = {
   sendToOwner,
   getMainWindow: () => mainWindow,
   gesturesEnabled: () => features.prefs().gestures !== false,
+  // Bring the main window forward, reopening it if it was closed (macOS keeps the app running)
+  focusMain: () => {
+    if (!mainWindow) return createWindow();
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  },
+  rebuildMenu: () => buildMenu(),
+  profileDir,
+  defaultProfileDir,
 };
 
 const sessions = require('./main/sessions')(M);
 const ai = require('./main/ai')(M);
 const tools = require('./main/tools')(M);
 require('./main/autofill')(M);
+const profiles = require('./main/profiles')(M);
 
 /* ------------------------------------------------------------------ */
 /* Misc IPC                                                            */
@@ -119,13 +134,19 @@ ipcMain.on('mini-promote', (event, url) => {
 
 // Shortcuts are captured in the main process so they work even when a
 // <webview> has keyboard focus (the host page never sees those key events).
+// Most come from the table in main/shortcuts.js, with the user's overrides from Settings.
+const recording = new Set(); // windows where Settings is recording a new shortcut
+
 function matchShortcut(input, win) {
   if (input.type !== 'keyDown') return null;
+  // Let the keys through to Settings while it records one
+  if (win && recording.has(win.id)) return null;
 
   const isMac = process.platform === 'darwin';
   const key = input.key.toLowerCase();
   const mod = isMac ? input.meta : input.control;
 
+  // Fixed shortcuts (not customizable)
   if (input.key === 'F5') return 'reload';
   if (input.key === 'Escape') return win && escapeCaptured.get(win.id) ? 'escape' : null;
   if (input.control && key === 'tab') return input.shift ? 'prev-tab' : 'next-tab';
@@ -134,59 +155,35 @@ function matchShortcut(input, win) {
   const spaceMod = isMac ? input.control && !input.meta : input.alt && !input.control;
   if (spaceMod && /^Digit[1-9]$/.test(input.code)) return `space-${input.code.slice(5)}`;
 
-  if (!mod) return null;
+  const combo = shortcuts.comboFromInput(input);
+  const action = combo && shortcuts.actionFor(combo, features.prefs().shortcuts);
+  if (action) return action;
 
-  if (input.alt) {
-    switch (input.code) {
-      case 'KeyN': return 'little-window';
-      case 'KeyC': return 'compact';
-      case 'KeyI': return 'devtools';
-      default: return null;
-    }
-  }
-
-  if (input.shift) {
-    switch (input.code) {
-      case 'KeyT': return 'reopen-closed';
-      case 'KeyA': return 'tab-search';
-      case 'KeyR': return 'reader';
-      case 'KeyC': return 'copy-url';
-      case 'KeyD': return 'split-view';
-      case 'KeyJ': return 'downloads';
-      case 'KeyL': return 'reading-list';
-      case 'KeyN': return 'private-window';
-      case 'KeyS': return 'screenshot';
-      case 'KeyG': return 'find-prev';
-      case 'Equal': return 'zoom-in';
-      case 'Digit2': return 'capture';
-      default: return null;
-    }
-  }
-
-  switch (input.code) {
-    case 'KeyF': return 'find';
-    case 'KeyG': return 'find-next';
-    case 'Equal': return 'zoom-in';
-    case 'Minus': return 'zoom-out';
-    case 'Digit0': return 'zoom-reset';
-  }
-
-  switch (key) {
-    case 't': return 'new-tab';
-    case 'w': return 'close-tab';
-    case 'r': return 'reload';
-    case 'l': return 'focus-url';
-    case 's': return 'toggle-sidebar';
-    case 'd': return 'toggle-pin';
-    case 'y': return 'history';
-    case ',': return 'settings';
-    case '[': return 'back';
-    case ']': return 'forward';
-    default:
-      if (/^[1-9]$/.test(key)) return `tab-${key}`;
-      return null;
-  }
+  if (mod && !input.alt && !input.shift && /^[1-9]$/.test(key)) return `tab-${key}`;
+  return null;
 }
+
+// Settings asks for raw keys while it records a shortcut
+ipcMain.on('shortcut-recording', (event, on) => {
+  const win = windowOf(event.sender);
+  if (!win) return;
+  if (on) recording.add(win.id);
+  else recording.delete(win.id);
+});
+
+ipcMain.handle('shortcuts-get', () => features.prefs().shortcuts || {});
+
+ipcMain.handle('shortcuts-set', (_event, overrides) => {
+  // Keep only valid entries; anything else falls back to the default
+  const clean = {};
+  for (const [id, combo] of Object.entries(overrides || {})) {
+    if (id in shortcuts.DEFAULTS && (combo === null || (typeof combo === 'string' && !shortcuts.problem(combo)))) clean[id] = combo;
+  }
+  features.setPref('shortcuts', clean);
+  buildMenu();
+  for (const win of browserWindows) sendToWindow(win, 'shortcuts-changed', clean);
+  return clean;
+});
 
 /* ------------------------------------------------------------------ */
 /* Page context menu                                                   */
@@ -465,21 +462,44 @@ app.on('web-contents-created', (_event, contents) => {
 
 function buildMenu() {
   const isMac = process.platform === 'darwin';
+  // Menus show the user's current shortcuts; the keys themselves are handled in before-input-event
+  // (registerAccelerator: false) so they also work inside pages
+  const bindings = shortcuts.effective(features.prefs().shortcuts);
+  const accel = (action) => ({ accelerator: shortcuts.toAccelerator(bindings[action]), registerAccelerator: false });
+  const sendShortcut = (action) => {
+    const focused = BrowserWindow.getFocusedWindow();
+    sendToWindow(isBrowserWindow(focused) ? focused : mainWindow, 'shortcut', action);
+  };
+  const openSettings = (section) => {
+    if (!mainWindow) createWindow();
+    const focused = BrowserWindow.getFocusedWindow();
+    const win = isBrowserWindow(focused) ? focused : mainWindow;
+    const send = () => sendToWindow(win, 'open-settings', section);
+    if (win.webContents.isLoading()) win.webContents.once('did-finish-load', send);
+    else send();
+    win.show();
+  };
+  const profileMenu = {
+    label: 'Open Profile',
+    submenu: [
+      ...profiles.list().map((p) => ({
+        label: p.name,
+        type: 'checkbox',
+        checked: p.current,
+        click: () => profiles.open(p.id),
+      })),
+      { type: 'separator' },
+      { label: 'Manage Profiles…', click: () => openSettings('profiles') },
+    ],
+  };
   const template = [
     ...(isMac ? [{
       label: app.name,
       submenu: [
         { role: 'about' },
         { type: 'separator' },
-        {
-          label: 'Settings…',
-          accelerator: 'CmdOrCtrl+,',
-          registerAccelerator: false,
-          click: () => {
-            const focused = BrowserWindow.getFocusedWindow();
-            sendToWindow(isBrowserWindow(focused) ? focused : mainWindow, 'shortcut', 'settings');
-          },
-        },
+        { label: 'Settings…', ...accel('settings'), click: () => sendShortcut('settings') },
+        profileMenu,
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
@@ -493,9 +513,10 @@ function buildMenu() {
     {
       label: 'File',
       submenu: [
-        // Shortcuts are handled in before-input-event so they also work inside pages
-        { label: 'New Private Window', accelerator: 'CmdOrCtrl+Shift+N', registerAccelerator: false, click: () => createPrivateWindow() },
-        { label: 'New Little Window', accelerator: 'CmdOrCtrl+Alt+N', registerAccelerator: false, click: () => createMiniWindow() },
+        { label: 'New Private Window', ...accel('private-window'), click: () => createPrivateWindow() },
+        { label: 'New Little Window', ...accel('little-window'), click: () => createMiniWindow() },
+        { type: 'separator' },
+        { ...profileMenu, submenu: profileMenu.submenu.map((item) => ({ ...item })) },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
