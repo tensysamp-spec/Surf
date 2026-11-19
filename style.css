@@ -693,21 +693,21 @@ body.dragging .pinned-hint { display: block; }
 .spaces-pill {
   display: flex;
   align-items: center;
-  gap: 1px;
-  padding: 2px;
-  border-radius: 999px;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
   background: var(--white-1);
   box-shadow: inset 0 0 0 0.5px var(--line);
 }
-.spaces-pill #add-space-btn { border-radius: 999px; min-width: 24px; }
-#spaces-bar { display: flex; align-items: center; gap: 1px; }
+.spaces-pill #add-space-btn { border-radius: 6px; min-width: 26px; height: 26px; }
+#spaces-bar { display: flex; align-items: center; gap: 2px; }
 .space-dot {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 26px;
-  height: 24px;
-  border-radius: 999px;
+  height: 26px;
+  border-radius: 6px;
   transition: background var(--t-fast);
 }
 .space-dot span {
