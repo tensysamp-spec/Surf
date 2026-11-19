@@ -11,7 +11,7 @@ const mod = process.platform === 'darwin' ? '⌘' : 'Ctrl+';
 const STEPS = [
   {
     target: null,
-    title: 'Welcome to Browser',
+    title: 'Welcome to Surf',
     text: 'A quick tour of the essentials — about a minute. Use ← → to move between steps, or Esc to skip. You can replay it any time from Settings.',
   },
   {
@@ -228,7 +228,7 @@ function start() {
   const hole = U.el('div', 'intro-hole');
   const card = U.el('div', 'intro-card');
   card.setAttribute('role', 'dialog');
-  card.setAttribute('aria-label', 'Browser tour');
+  card.setAttribute('aria-label', 'Surf tour');
   root.append(hole, card);
   // Swallow clicks so the tour isn't dismissed or the UI underneath triggered by accident
   root.addEventListener('mousedown', (e) => {

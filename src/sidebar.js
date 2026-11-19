@@ -15,6 +15,7 @@ let prevIds = null;
 let renderedSpaceId = null;
 let renderedActiveId = null;
 let activatedNow = false; // the active tab changed since the last render
+let spaceChanged = false; // the active space changed since the last render
 
 /* ------------------------------------------------------------------ */
 /* Rendering                                                           */
@@ -28,6 +29,7 @@ function render() {
   rowEls.clear();
   const spaceId = T().activeSpaceId;
   prevIds = renderedSpaceId === spaceId ? seenIds : null;
+  spaceChanged = renderedSpaceId !== null && renderedSpaceId !== spaceId;
   renderedSpaceId = spaceId;
   activatedNow = T().activeEntryId !== renderedActiveId;
   renderedActiveId = T().activeEntryId;
@@ -127,9 +129,73 @@ function entryRow(entry, section, parent, index) {
     entryMenu(entry, e.clientX, e.clientY);
   });
   row.addEventListener('mouseenter', () => schedulePreview(entry.id, row));
-  row.addEventListener('mouseleave', hidePreview);
+  row.addEventListener('mouseleave', softHidePreview);
   rowEls.set(entry.id, row);
   return row;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pinned tabs: square tiles that glow in their site's color           */
+/* ------------------------------------------------------------------ */
+
+function fillPinnedTile(tile, entry) {
+  const tab = T().live.get(entry.id);
+  const wandered = T().isWandered(entry);
+  tile.replaceChildren();
+  tile.classList.toggle('active', entry.id === T().activeEntryId);
+  tile.classList.toggle('displayed', T().displayed.includes(entry.id));
+  tile.classList.toggle('unloaded', !tab);
+  tile.classList.toggle('wandered', wandered);
+  tile.classList.toggle('unread', !!entry.unread);
+  // Glow with the pinned site's own icon, even while browsing elsewhere in the tab
+  ctx.siteColor.apply(tile, entry.favicon || T().entryFavicon(entry));
+
+  const icon = U.el('span', 'tile-icon');
+  icon.appendChild(entryIconNode(entry, tab));
+  tile.appendChild(icon);
+  tile.title = wandered
+    ? `${T().entryTitle(entry)}\nNow on ${U.displayUrl(tab.url)} — click ↩ to go back`
+    : `${T().entryTitle(entry)}\n${U.displayUrl((tab && tab.url) || entry.url)}`;
+
+  if (tab && (tab.audible || tab.muted)) {
+    tile.appendChild(U.iconButton(tab.muted ? 'mute' : 'volume', tab.muted ? 'Unmute tab' : 'Mute tab', (e) => {
+      e.stopPropagation();
+      ctx.media.toggleMute(tab);
+    }, 'tile-badge tile-audio'));
+  } else if (wandered) {
+    tile.appendChild(U.iconButton('undo', `Back to ${U.displayUrl(entry.url)}`, (e) => {
+      e.stopPropagation();
+      T().resetToHome(entry.id);
+    }, 'tile-badge tile-reset'));
+  }
+}
+
+function pinnedTile(entry, index) {
+  const tile = U.el('div', 'pinned-tile');
+  tile.dataset.id = entry.id;
+  tile.dataset.section = 'pinned';
+  tile.dataset.parentId = '';
+  tile.dataset.index = index;
+  tile.draggable = true;
+  tile.setAttribute('role', 'button');
+  fillPinnedTile(tile, entry);
+  seenIds.add(entry.id);
+  if (prevIds && !prevIds.has(entry.id)) tile.classList.add('fav-enter');
+
+  tile.addEventListener('mousedown', (e) => {
+    if (e.button === 0 && !e.target.closest('button')) T().showEntry(entry.id);
+  });
+  tile.addEventListener('auxclick', (e) => {
+    if (e.button === 1) T().closeEntry(entry.id);
+  });
+  tile.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    entryMenu(entry, e.clientX, e.clientY);
+  });
+  tile.addEventListener('mouseenter', () => schedulePreview(entry.id, tile));
+  tile.addEventListener('mouseleave', softHidePreview);
+  rowEls.set(entry.id, tile);
+  return tile;
 }
 
 /* ------------------------------------------------------------------ */
@@ -137,10 +203,20 @@ function entryRow(entry, section, parent, index) {
 /* ------------------------------------------------------------------ */
 
 let previewTimer = null;
+let previewHideTimer = null;
 function schedulePreview(entryId, row) {
   clearTimeout(previewTimer);
-  if (dragging || entryId === T().activeEntryId) return;
-  previewTimer = setTimeout(() => showPreview(entryId, row), 550);
+  clearTimeout(previewHideTimer);
+  if (dragging || entryId === T().activeEntryId) return softHidePreview();
+  // Once a preview is up, moving to the next row swaps it right away (and glides)
+  const warm = !U.$('tab-preview').hidden;
+  previewTimer = setTimeout(() => showPreview(entryId, row), warm ? 60 : 550);
+}
+
+function softHidePreview() {
+  clearTimeout(previewTimer);
+  clearTimeout(previewHideTimer);
+  previewHideTimer = setTimeout(hidePreview, 160);
 }
 
 function showPreview(entryId, row) {
@@ -148,6 +224,7 @@ function showPreview(entryId, row) {
   if (!entry || !row.isConnected) return;
   const tab = T().live.get(entryId);
   const card = U.$('tab-preview');
+  card.classList.toggle('glide', !card.hidden);
   card.replaceChildren();
   if (tab && tab.thumb) {
     const img = U.el('img');
@@ -170,6 +247,7 @@ function showPreview(entryId, row) {
 
 function hidePreview() {
   clearTimeout(previewTimer);
+  clearTimeout(previewHideTimer);
   const card = U.$('tab-preview');
   if (card) card.hidden = true;
 }
@@ -197,7 +275,8 @@ function folderBlock(folder, section, index) {
   row.appendChild(chevron);
 
   row.addEventListener('click', () => {
-    justOpenedFolder = folder.open ? null : folder.id;
+    if (folder.open) return collapseFolder(wrap, folder.id);
+    justOpenedFolder = folder.id;
     T().toggleFolder(folder.id);
   });
   row.addEventListener('dblclick', () => T().renameFolder(folder.id));
@@ -216,14 +295,42 @@ function folderBlock(folder, section, index) {
   wrap.appendChild(row);
 
   if (folder.open) {
-    const children = U.el('div', 'folder-children' + (justOpenedFolder === folder.id ? ' opening' : ''));
-    if (justOpenedFolder === folder.id) justOpenedFolder = null;
+    const opening = justOpenedFolder === folder.id;
+    const children = U.el('div', 'folder-children' + (opening ? ' opening' : ''));
+    if (opening) justOpenedFolder = null;
     children.dataset.parentId = folder.id;
     folder.children.forEach((child, i) => children.appendChild(entryRow(child, section, folder, i)));
     if (!folder.children.length) children.appendChild(U.el('div', 'folder-empty', 'Drag tabs here'));
     wrap.appendChild(children);
+    if (opening) requestAnimationFrame(() => growFolder(children));
   }
   return wrap;
+}
+
+// Grow the children from 0 to their natural height
+function growFolder(children) {
+  if (!children.isConnected) return;
+  const h = children.scrollHeight;
+  children.style.height = '0px';
+  void children.offsetHeight;
+  children.classList.add('resizing');
+  children.style.height = `${h}px`;
+  setTimeout(() => {
+    children.classList.remove('resizing');
+    children.style.height = '';
+  }, 260);
+}
+
+// Shrink the children away, then actually close the folder
+function collapseFolder(wrap, folderId) {
+  const children = wrap.querySelector(':scope > .folder-children');
+  if (!children || wrap.classList.contains('closing') || matchMedia('(prefers-reduced-motion: reduce)').matches) return T().toggleFolder(folderId);
+  wrap.classList.add('closing');
+  children.style.height = `${children.offsetHeight}px`;
+  void children.offsetHeight;
+  children.classList.add('resizing');
+  children.style.height = '0px';
+  setTimeout(() => T().toggleFolder(folderId), 220);
 }
 
 function splitBlock(split, section, index) {
@@ -276,8 +383,11 @@ function renderSection(section) {
   const listEl = U.$(`${section}-list`);
   listEl.replaceChildren();
   listEl.dataset.section = section;
+  const grid = section === 'pinned' ? U.el('div', 'pinned-grid') : null;
+  if (grid) listEl.appendChild(grid);
   space[section].forEach((node, i) => {
-    if (node.type === 'folder') listEl.appendChild(folderBlock(node, section, i));
+    if (grid && node.type === 'entry') grid.appendChild(pinnedTile(node, i));
+    else if (node.type === 'folder') listEl.appendChild(folderBlock(node, section, i));
     else if (node.type === 'split') listEl.appendChild(splitBlock(node, section, i));
     else listEl.appendChild(entryRow(node, section, null, i));
   });
@@ -293,10 +403,13 @@ function renderFavorites() {
     tile.dataset.id = fav.id;
     tile.dataset.index = i;
     tile.draggable = true;
+    seenIds.add(fav.id);
+    if (prevIds && !prevIds.has(fav.id)) tile.classList.add('fav-enter');
     tile.classList.toggle('active', fav.id === T().activeEntryId);
     tile.classList.toggle('loaded', !!tab);
     tile.title = `${T().entryTitle(fav)}\n${fav.url}`;
     tile.appendChild(U.iconElement(T().entryFavicon(fav), U.ICONS.globe));
+    ctx.siteColor.apply(tile, fav.favicon || T().entryFavicon(fav));
     if (tab && (tab.audible || tab.muted)) tile.appendChild(U.el('span', 'fav-audio'));
 
     tile.addEventListener('click', () => T().showEntry(fav.id));
@@ -317,7 +430,8 @@ function renderSpaces() {
   const bar = U.$('spaces-bar');
   bar.replaceChildren();
   T().spaces.forEach((space, i) => {
-    const dot = U.el('button', 'space-dot' + (space.id === T().activeSpaceId ? ' active' : ''));
+    const isActive = space.id === T().activeSpaceId;
+    const dot = U.el('button', 'space-dot' + (isActive ? ' active' : '') + (isActive && spaceChanged ? ' just-active' : ''));
     dot.style.setProperty('--dot', T().themeFor(space).accent);
     const mod = process.platform === 'darwin' ? '⌃' : 'Alt+';
     dot.title = `${space.name}${i < 9 ? `  (${mod}${i + 1})` : ''}`;
@@ -339,7 +453,9 @@ function updateEntry(entryId) {
   const node = rowEls.get(entryId);
   const entry = T().findEntry(entryId);
   if (!node || !entry) return;
-  if (node.classList.contains('entry-row')) {
+  if (node.classList.contains('pinned-tile')) {
+    fillPinnedTile(node, entry);
+  } else if (node.classList.contains('entry-row')) {
     fillEntryRow(node, entry);
   } else if (node.classList.contains('split-seg')) {
     const iconWrap = node.querySelector('.row-icon');
@@ -369,6 +485,8 @@ function entryMenu(entry, x, y) {
   U.contextMenu([
     loc.section === 'today' && { label: 'Pin tab', icon: 'pin', hint: '⌘D', action: () => T().togglePin(entry.id) },
     loc.section === 'pinned' && { label: 'Unpin tab', icon: 'pin', hint: '⌘D', action: () => T().togglePin(entry.id) },
+    loc.section !== 'today' && T().isWandered(entry) && { label: 'Back to pinned page', icon: 'undo', action: () => T().resetToHome(entry.id) },
+    loc.section !== 'today' && T().isWandered(entry) && { label: 'Pin this page instead', icon: 'pin', action: () => T().rehome(entry.id) },
     isWeb && { label: loc.section === 'fav' ? 'Remove from favorites' : 'Add to favorites', icon: 'star', action: () => T().toggleFavorite(entry.id) },
     canSplit && { label: 'Open in split view', icon: 'split', action: () => T().splitWith(T().activeEntryId, entry.id) },
     split && { label: 'Separate split view', icon: 'split', action: () => T().unsplit(split.id) },
@@ -615,6 +733,15 @@ function listTarget(listEl, e) {
   const spaceId = T().activeSpaceId;
   const draggedLoc = T().locate(dragging);
   const draggedIsEntry = draggedLoc && draggedLoc.node.type === 'entry';
+  const tile = e.target.closest('.pinned-tile');
+  if (tile && listEl.contains(tile)) {
+    if (!draggedIsEntry) return null;
+    const r = tile.getBoundingClientRect();
+    const after = e.clientX > r.left + r.width / 2;
+    tile.classList.add(after ? 'drop-after' : 'drop-before');
+    indicator().hidden = true;
+    return { section, spaceId, parentId: null, index: Number(tile.dataset.index) + (after ? 1 : 0) };
+  }
   const row = e.target.closest('.row');
 
   if (!row || !listEl.contains(row)) {
@@ -757,8 +884,67 @@ function toggleCompact() {
   U.toast(on ? 'Compact mode — hover the left edge for the sidebar (⌥⌘C to exit)' : 'Compact mode off');
 }
 
+/* ------------------------------------------------------------------ */
+/* Two-finger swipe on the sidebar: switch spaces                      */
+/* ------------------------------------------------------------------ */
+
+function setupSpaceSwipe() {
+  const sidebar = U.$('sidebar');
+  const scroll = U.$('sidebar-scroll');
+  const THRESHOLD = 150;
+  let acc = 0;
+  let idleTimer = null;
+  let spent = false; // this gesture already switched; ignore its momentum
+
+  const neighbor = (dir) => {
+    const list = T().spaces;
+    const i = list.findIndex((s) => s.id === T().activeSpaceId);
+    return list[i + dir] || null;
+  };
+  const settle = () => {
+    scroll.style.transition = 'transform 280ms var(--ease), opacity 220ms var(--ease)';
+    scroll.style.transform = '';
+    scroll.style.opacity = '';
+    setTimeout(() => { scroll.style.transition = ''; }, 300);
+  };
+  const end = () => {
+    acc = 0;
+    spent = false;
+    settle();
+  };
+
+  sidebar.addEventListener('wheel', (e) => {
+    // Rows that scroll sideways themselves keep their swipes
+    if (dragging || e.target.closest('#shelf-items, #panel-row')) return;
+    const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.3;
+    if (!horizontal && !acc) return;
+    e.preventDefault();
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(end, 140);
+    if (spent) return;
+
+    acc += e.deltaX;
+    const dir = Math.sign(acc);
+    const target = neighbor(dir);
+    // Follow the fingers; rubber-band when there's no space that way
+    const pull = target ? acc : acc * 0.2;
+    const shift = Math.max(-80, Math.min(80, -pull * 0.45));
+    scroll.style.transition = 'none';
+    scroll.style.transform = `translateX(${shift}px)`;
+    scroll.style.opacity = String(1 - Math.min(Math.abs(shift) / 80, 1) * 0.45);
+
+    if (target && Math.abs(acc) > THRESHOLD) {
+      spent = true;
+      scroll.style.transform = '';
+      scroll.style.opacity = '';
+      T().switchSpace(target.id);
+    }
+  }, { passive: false });
+}
+
 function setup() {
   setupDragAndDrop();
+  setupSpaceSwipe();
 
   U.$('sidebar-toggle-btn').addEventListener('click', toggleCollapsed);
   U.$('sidebar-edge').addEventListener('mouseenter', reveal);
@@ -826,4 +1012,4 @@ function setupResizer() {
   });
 }
 
-ctx.sidebar = { setup, render, updateEntry, toggleCollapsed, toggleCompact, reveal, unpeek, entryMenu, shareMenu, hidePreview };
+ctx.sidebar = { setup, render, updateEntry, toggleCollapsed, toggleCompact, reveal, unpeek, entryMenu, shareMenu, hidePreview, themePicker };

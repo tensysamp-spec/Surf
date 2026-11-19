@@ -2684,3 +2684,270 @@ body.shelf-open .shelf-inner { opacity: 1; transform: none; }
   box-shadow: 0 0 0 2px var(--tint-b);
 }
 body.dark #shelf-badge { color: #17161f; }
+
+/* ------------------------------------------------------------------ */
+/* Motion, round two                                                    */
+/* ------------------------------------------------------------------ */
+
+/* Space colors fade instead of snapping (registered so they can interpolate) */
+@property --tint-a { syntax: "<color>"; inherits: true; initial-value: #e4def7; }
+@property --tint-b { syntax: "<color>"; inherits: true; initial-value: #f5f3fa; }
+@property --tint-c { syntax: "<color>"; inherits: true; initial-value: #f5d8ef; }
+@property --accent { syntax: "<color>"; inherits: true; initial-value: #6d5bd0; }
+:root { transition: --tint-a 450ms var(--ease), --tint-b 450ms var(--ease), --tint-c 450ms var(--ease), --accent 450ms var(--ease); }
+/* …but follow the picker handle instantly while dragging */
+body:has(.tp-pad.dragging), body:has(.tp-range:active) { transition: none; }
+:root:has(.tp-pad.dragging), :root:has(.tp-range:active) { transition: none; }
+
+/* Switching spaces slides the sidebar in from the side the space sits on */
+body.space-anim[data-space-dir="prev"] #sidebar-scroll { animation-name: space-in-prev; }
+@keyframes space-in-prev {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Pages fade in when they come on screen */
+#webviews-container .tab-view.view-enter { animation: view-in 220ms var(--ease); }
+@keyframes view-in {
+  from { opacity: 0.35; transform: scale(0.996); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Folders grow open and shrink closed */
+.folder-children.resizing { overflow: hidden; transition: height 220ms var(--ease); }
+.folder.closing > .folder-children { opacity: 0; transition: height 220ms var(--ease), opacity 160ms var(--ease); }
+.folder.closing > .folder-children > * { transform: translateY(-4px); transition: transform 200ms var(--ease); }
+.folder.closing > .folder-row .row-chevron { transform: none; }
+
+/* Favorites pop in when added */
+.favorite.fav-enter { animation: fav-in 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes fav-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The active space's badge gets a little bounce */
+.space-dot.just-active span { animation: dot-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes dot-pop {
+  0% { transform: scale(0.7); }
+  100% { transform: none; }
+}
+
+/* Menus, dialogs and settings fade out instead of vanishing */
+.ctx-menu.closing { animation: pop-out 110ms var(--ease) forwards; }
+.dialog-backdrop.closing, .modal-backdrop.closing { animation: fade-out 140ms var(--ease) forwards; }
+.dialog-backdrop.closing .dialog, .modal-backdrop.closing .modal { animation: pop-out 140ms var(--ease) forwards; }
+@keyframes pop-out { to { opacity: 0; transform: translateY(-3px) scale(0.97); } }
+@keyframes fade-out { to { opacity: 0; } }
+
+/* Popovers open with a slight spring */
+.ctx-menu { transform-origin: top left; animation: menu-in 160ms cubic-bezier(0.2, 1.2, 0.4, 1); }
+@keyframes menu-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Toasts rise with a little spring */
+.toast { transition: opacity 220ms var(--ease), transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.toast:not(.show) { transform: translateY(12px) scale(0.96); }
+
+/* Command bar results: selection glides between rows */
+.command-item { transition: background 120ms var(--ease), transform 160ms var(--ease); }
+.command-item.selected { transform: translateX(2px); }
+
+/* Settings rows and switches */
+.settings-toggle, .settings-toggle::after { transition: background 200ms var(--ease), transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.settings-picker { padding: 12px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.settings-picker .theme-picker { max-width: 300px; padding: 0; }
+.settings-picker .tp-label, .settings-picker .tp-modes { display: none; }
+.settings-picker .tp-top { display: none; }
+
+/* Bigger, sharper tab previews that glide between rows */
+#tab-preview { width: 340px; }
+#tab-preview img { max-height: 220px; }
+#tab-preview.glide { animation: none; transition: top 180ms var(--ease), left 180ms var(--ease); }
+#tab-preview.glide img, #tab-preview.glide .tp-text { animation: fade-in 140ms var(--ease); }
+
+/* ------------------------------------------------------------------ */
+/* ⌃Tab switcher                                                       */
+/* ------------------------------------------------------------------ */
+
+#switcher {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 16, 40, 0.22);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms var(--ease);
+}
+body.switcher-open #switcher { opacity: 1; pointer-events: auto; }
+.sw-strip {
+  display: flex;
+  gap: 14px;
+  max-width: calc(100vw - 80px);
+  padding: 18px;
+  border-radius: 22px;
+  background: var(--menu-bg);
+  box-shadow: var(--shadow-lg), 0 0 0 0.5px var(--line);
+  overflow-x: auto;
+  transform: scale(0.94);
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.sw-strip::-webkit-scrollbar { height: 0; }
+body.switcher-open .sw-strip { transform: none; }
+.sw-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 200px;
+  flex-shrink: 0;
+  padding: 8px;
+  border-radius: 14px;
+  text-align: left;
+  transition: background 140ms var(--ease), transform 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+body.switcher-open .sw-card { animation: sw-in 280ms var(--ease) both; animation-delay: calc(min(var(--i), 8) * 22ms); }
+@keyframes sw-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.sw-card.selected { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); transform: translateY(-3px); }
+.sw-thumb {
+  height: 120px;
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--row-shadow);
+}
+.sw-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.sw-thumb.empty { display: flex; align-items: center; justify-content: center; background: var(--glass-1); }
+.sw-thumb.empty img, .sw-thumb.empty svg { width: 32px; height: 32px; object-fit: contain; color: var(--text-faint); }
+.sw-label { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 0 2px; }
+.sw-icon { display: flex; flex-shrink: 0; }
+.sw-icon img, .sw-icon svg { width: 14px; height: 14px; border-radius: 3px; color: var(--text-faint); }
+.sw-title { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12.5px; font-weight: 500; color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { transition: none; }
+  .tab-view.view-enter, .favorite.fav-enter, .space-dot.just-active span, .ctx-menu, .sw-card { animation: none !important; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Pinned tabs as square tiles, glowing in their site's color          */
+/* ------------------------------------------------------------------ */
+
+.pinned-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  padding: 2px 0 6px;
+}
+.pinned-grid:empty { display: none; }
+.pinned-tile {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--white-1);
+  box-shadow: inset 0 0 0 0.5px var(--line);
+  cursor: default;
+  isolation: isolate;
+  transition: background var(--t-fast), box-shadow var(--t), transform var(--t);
+}
+/* The glow: a soft blob of the site color behind the icon */
+.pinned-tile::before, .favorite::before {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  z-index: -1;
+  border-radius: 50%;
+  background: var(--site, transparent);
+  filter: blur(10px);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity var(--t), transform var(--t);
+}
+.has-site.pinned-tile::before, .has-site.favorite::before { opacity: 0.42; }
+.has-site.pinned-tile:hover::before, .has-site.favorite:hover::before { opacity: 0.65; transform: scale(1.1); }
+.has-site.pinned-tile.active::before, .has-site.favorite.active::before { opacity: 0.55; transform: scale(1.2); }
+.has-site.pinned-tile, .has-site.favorite {
+  background: color-mix(in srgb, var(--site) 13%, var(--white-1));
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--site) 30%, transparent);
+}
+.pinned-tile:hover { background: var(--white-2); transform: translateY(-1px); }
+.has-site.pinned-tile:hover, .has-site.favorite:hover { background: color-mix(in srgb, var(--site) 18%, var(--white-2)); }
+.pinned-tile:active { transform: scale(0.94); }
+.pinned-tile.active, .favorite.active { background: var(--surface); box-shadow: var(--row-shadow); }
+.has-site.pinned-tile.active, .has-site.favorite.active {
+  background: var(--surface);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--site) 60%, transparent), 0 6px 18px -4px color-mix(in srgb, var(--site) 55%, transparent);
+}
+.pinned-tile.displayed:not(.active) { background: var(--white-2); }
+body.dark .has-site.pinned-tile, body.dark .has-site.favorite { background: color-mix(in srgb, var(--site) 16%, var(--white-1)); }
+body.dark .has-site.pinned-tile.active, body.dark .has-site.favorite.active { background: color-mix(in srgb, var(--site) 14%, var(--surface)); }
+
+.tile-icon { display: flex; align-items: center; justify-content: center; }
+.tile-icon img { width: 20px; height: 20px; border-radius: 5px; object-fit: contain; transition: transform var(--t), filter var(--t), opacity var(--t); }
+.tile-icon svg { width: 17px; height: 17px; color: var(--text-dim); }
+.pinned-tile:hover .tile-icon img { transform: scale(1.1); }
+.pinned-tile.unloaded:not(:hover) .tile-icon img, .pinned-tile.unloaded:not(:hover) .tile-icon svg { opacity: 0.55; filter: saturate(0.6); }
+/* Loaded-but-not-shown dot, like favorites */
+.pinned-tile:not(.unloaded):not(.active)::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--site, var(--text-faint));
+  opacity: 0.8;
+}
+.pinned-tile.unread .tile-icon { position: relative; }
+.pinned-tile.unread .tile-icon::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--white-2);
+}
+
+/* Corner badge: audio, or "back to the pinned page" once the tab has wandered */
+.tile-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-dim);
+  transition: transform var(--t), color var(--t-fast), background var(--t-fast);
+}
+.tile-badge svg { width: 10px; height: 10px; stroke-width: 2.6; }
+.tile-audio { color: var(--accent); }
+.tile-reset { animation: fav-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.tile-reset:hover { background: var(--accent); color: #fff; transform: rotate(-40deg) scale(1.1); }
+.pinned-tile.wandered .tile-icon img { transform: scale(0.88); }
+
+.pinned-tile.drop-before { box-shadow: -3px 0 0 var(--accent); }
+.pinned-tile.drop-after { box-shadow: 3px 0 0 var(--accent); }
+.pinned-tile.drag-source { opacity: 0.35; }
+.favorite { isolation: isolate; }

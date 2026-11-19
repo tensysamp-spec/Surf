@@ -1,7 +1,7 @@
 // Screenshots, password manager (encrypted with the macOS Keychain via safeStorage),
 // and mouse gestures (right-drag on a page).
 
-const { app, ipcMain, webContents, clipboard, ClipboardItem, nativeImage, safeStorage, systemPreferences } = require('electron');
+const { app, ipcMain, net, webContents, clipboard, ClipboardItem, nativeImage, safeStorage, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -14,6 +14,26 @@ module.exports = function setupTools(M) {
     if (typeof file !== 'string' || !fs.existsSync(file)) return;
     const icon = await app.getFileIcon(file, { size: 'normal' }).catch(() => null);
     event.sender.startDrag({ file, icon: icon && !icon.isEmpty() ? icon : nativeImage.createFromNamedImage('NSImageNameMultipleDocuments') });
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* Site icons as data URLs, so the window can read their colors      */
+  /* (a cross-origin <img> would taint the canvas)                    */
+  /* ---------------------------------------------------------------- */
+
+  ipcMain.handle('fetch-icon', async (_event, url) => {
+    if (typeof url !== 'string' || !/^https?:/i.test(url)) return null;
+    try {
+      const res = await net.fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (!res.ok) return null;
+      const type = (res.headers.get('content-type') || 'image/png').split(';')[0];
+      if (!type.startsWith('image/')) return null;
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > 512 * 1024) return null;
+      return `data:${type};base64,${buf.toString('base64')}`;
+    } catch {
+      return null;
+    }
   });
 
   ipcMain.handle('shelf-file-exists', (_event, file) => typeof file === 'string' && fs.existsSync(file));

@@ -41,14 +41,14 @@ const SHORTCUTS = [
   ['⇧⌘C', 'Copy URL'],
   ['⌘1–9', 'Go to tab'],
   ['⌃1–9', 'Go to space'],
-  ['⌃Tab', 'Next tab'],
+  ['⌃Tab', 'Switch tabs (hold ⌃)'],
   ['⌥⌘N', 'Little window'],
   ['⇧⌘2', 'Capture to easel'],
   ['⌘F', 'Find in page'],
   ['⌘+ / ⌘−', 'Zoom in / out (⌘0 resets)'],
   ['⇧⌘R', 'Reader view'],
   ['⇧ over a link', 'AI link preview'],
-  ['Two-finger swipe', 'Back / forward'],
+  ['Two-finger swipe', 'Back / forward (on the sidebar: switch space)'],
   ['⇧⌘N', 'Private window'],
   ['⌥⌘C', 'Compact mode'],
   ['⇧⌘S', 'Screenshot'],
@@ -66,7 +66,7 @@ let release = null;
 
 function close() {
   if (!panel) return;
-  panel.remove();
+  U.removeAnimated(panel, 160);
   panel = null;
   if (release) release();
   release = null;
@@ -135,6 +135,13 @@ async function open(section = null) {
     },
   ), 'Space colors adapt automatically.'));
 
+  const space = ctx.tabs.activeSpace();
+  const colorRow = U.el('div', 'settings-picker');
+  const colorText = U.el('div', 'settings-label');
+  colorText.append(U.el('span', null, 'Space color'), U.el('small', null, `Colors the “${space.name}” space. Each space keeps its own; switch spaces to change another.`));
+  colorRow.append(colorText, ctx.sidebar.themePicker(space));
+  body.appendChild(colorRow);
+
   heading('Getting started');
   const introBtn = U.el('button', 'btn', 'Replay intro');
   introBtn.addEventListener('click', () => ctx.intro.start());
@@ -154,7 +161,7 @@ async function open(section = null) {
   });
   body.appendChild(field('Use as default browser', defaultBtn, status.packaged
     ? 'Links you click in other apps open here.'
-    : 'Only works in the packaged app — run “npm run package” and open Browser.app.'));
+    : 'Only works in the packaged app — run “npm run package” and open Surf.app.'));
   body.appendChild(field('Open links from other apps in', select(
     [['little', 'Little window'], ['tab', 'New tab']],
     get('linkTarget'),

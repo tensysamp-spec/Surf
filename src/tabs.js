@@ -146,6 +146,44 @@ function entryTitle(entry) {
   return (tab && tab.title) || entry.title || U.hostOf(entry.url);
 }
 
+// Pinned tabs and favorites keep a home page; has this one browsed away from it?
+const pageKey = (u) => {
+  try {
+    const x = new URL(u);
+    return x.host.replace(/^www\./, '') + x.pathname.replace(/\/$/, '') + x.search;
+  } catch {
+    return u;
+  }
+};
+function isWandered(entry) {
+  const tab = live.get(entry.id);
+  if (!tab || !tab.url || !tab.homeLanded || !entry.url || U.isNewTabUrl(entry.url)) return false;
+  const now = pageKey(tab.url);
+  return now !== pageKey(tab.homeLanded) && now !== pageKey(entry.url);
+}
+
+function resetToHome(id) {
+  const entry = findEntry(id);
+  if (!entry) return;
+  const tab = live.get(id);
+  if (activeEntryId !== id) showEntry(id);
+  if (!tab) return;
+  tab.homeLanded = null;
+  loadInTab(tab, entry.url);
+}
+
+// Make the page a pinned tab has wandered to its new home
+function rehome(id) {
+  const entry = findEntry(id);
+  const tab = live.get(id);
+  if (!entry || !tab || !tab.url) return;
+  entry.url = tab.url;
+  if (tab.favicon) entry.favicon = tab.favicon;
+  tab.homeLanded = tab.url;
+  ctx.sidebar.render();
+  save();
+}
+
 function entryFavicon(entry) {
   const tab = live.get(entry.id);
   return (tab && tab.favicon) || entry.favicon;
@@ -288,6 +326,13 @@ function layout(ids) {
   for (const tab of live.values()) {
     const i = ids.indexOf(tab.entryId);
     const visible = i !== -1;
+    // A page that wasn't on screen fades in instead of popping
+    if (visible && !displayed.includes(tab.entryId)) {
+      tab.view.classList.remove('view-enter');
+      void tab.view.offsetWidth;
+      tab.view.classList.add('view-enter');
+      setTimeout(() => tab.view.classList.remove('view-enter'), 260);
+    }
     tab.view.classList.toggle('active', visible);
     if (visible && split) {
       tab.view.style.width = `calc((100% - ${(n - 1) * SPLIT_GAP}px) / ${n})`;
@@ -761,6 +806,9 @@ function applyTheme(space) {
 function switchSpace(id) {
   const space = getSpace(id);
   if (!space) return;
+  // Slide the sidebar in from the side the new space sits on
+  const from = spaces.findIndex((s) => s.id === activeSpaceId);
+  document.body.dataset.spaceDir = spaces.indexOf(space) < from ? 'prev' : 'next';
   activeSpaceId = id;
   applyTheme(space);
   U.setSpaceEngine(space.searchEngine);
@@ -913,7 +961,8 @@ async function captureThumb(tab) {
   if (!tab || tab.kind !== 'web' || !tab.ready || !displayed.includes(tab.entryId)) return;
   try {
     const image = await tab.webview.capturePage();
-    if (!image.isEmpty()) tab.thumb = image.resize({ width: 360 }).toDataURL();
+    // 720px wide (sharp on Retina at preview size); JPEG keeps the many open-tab thumbnails light
+    if (!image.isEmpty()) tab.thumb = `data:image/jpeg;base64,${image.resize({ width: 720, quality: 'better' }).toJPEG(82).toString('base64')}`;
   } catch { /* not paintable right now */ }
 }
 
@@ -998,6 +1047,8 @@ function bindWebviewEvents(tab) {
   });
 
   wv.addEventListener('did-navigate', (e) => {
+    // Where the tab settled after loading its home URL (after any redirects)
+    if (!tab.homeLanded) tab.homeLanded = e.url;
     tab.url = e.url;
     tab.favicon = null;
     if (U.isNewTabUrl(e.url)) tab.title = 'New Tab';
@@ -1085,7 +1136,11 @@ function boot() {
 
 ctx.tabs = {
   THEMES,
+  isWandered,
+  resetToHome,
+  rehome,
   themeFor,
+  captureThumb,
   boot,
   save,
   // state

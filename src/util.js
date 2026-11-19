@@ -322,9 +322,18 @@ function toast(message, { action, actionLabel, duration = 2600 } = {}) {
 
 let openMenu = null;
 
+// Play a short exit animation (the element's .closing styles), then remove it
+function removeAnimated(node, ms = 140) {
+  if (!node || !node.isConnected) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return node.remove();
+  node.classList.add('closing');
+  node.style.pointerEvents = 'none';
+  setTimeout(() => node.remove(), ms);
+}
+
 function closeContextMenu() {
   if (!openMenu) return;
-  openMenu.node.remove();
+  removeAnimated(openMenu.node, 110);
   openMenu.release();
   document.removeEventListener('mousedown', openMenu.outside, true);
   window.removeEventListener('blur', closeContextMenu);
@@ -425,7 +434,7 @@ function dialog({ title, message, value, placeholder, confirmLabel = 'OK', dange
 
     const finish = (result) => {
       release();
-      backdrop.remove();
+      removeAnimated(backdrop);
       resolve(result);
     };
     const release = pushEscape(() => finish(null));
@@ -551,6 +560,6 @@ function renderMarkdown(container, markdown) {
 module.exports = {
   NEWTAB_URL, SEARCH_ENGINES, PRIVATE, PRIVATE_PARTITION, store, setSpaceEngine, searchEngine, searchUrl, isNewTabUrl, resolveInput, looksLikeUrl,
   displayUrl, compactUrl, hostOf, uid, ICONS, $, el, icon, iconElement, iconButton, formatBytes, timeAgo,
-  dayLabel, pushEscape, popEscape, handleEscape, toast, contextMenu, closeContextMenu, dialog,
+  dayLabel, pushEscape, popEscape, handleEscape, toast, contextMenu, closeContextMenu, dialog, removeAnimated,
   sanitizeHtml, renderMarkdown,
 };

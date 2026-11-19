@@ -5,11 +5,13 @@ const ctx = require('./src/ctx');
 const U = require('./src/util');
 require('./src/settings');
 require('./src/tabs');
+require('./src/sitecolor');
 require('./src/sidebar');
 require('./src/nav');
 require('./src/command');
 require('./src/library');
 require('./src/shelf');
+require('./src/switcher');
 require('./src/peek');
 require('./src/boosts');
 require('./src/media');
@@ -86,8 +88,8 @@ const SHORTCUTS = {
   settings: () => ctx.settings.open(),
   back: () => ctx.nav.back(),
   forward: () => ctx.nav.forward(),
-  'next-tab': () => ctx.tabs.cycle(1),
-  'prev-tab': () => ctx.tabs.cycle(-1),
+  'next-tab': () => ctx.switcher.step(1),
+  'prev-tab': () => ctx.switcher.step(-1),
   escape: () => U.handleEscape(),
   find: () => ctx.page.openFind(),
   'find-next': () => ctx.page.findStep(true),
@@ -117,6 +119,7 @@ ctx.nav.setup();
 ctx.command.setup();
 ctx.library.setup();
 ctx.shelf.setup();
+ctx.switcher.setup();
 ctx.peek.setup();
 ctx.media.setup();
 ctx.ai.setup();
@@ -153,7 +156,7 @@ ipcRenderer.on('gesture', (_e, { action, webContentsId }) => {
 
 if (U.PRIVATE) {
   document.body.classList.add('private');
-  document.title = 'Private — Browser';
+  document.title = 'Private — Surf';
 }
 
 ipcRenderer.on('shift-key', () => ctx.ai.linkPreview());

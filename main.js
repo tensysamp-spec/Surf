@@ -2,9 +2,10 @@ const { app, BrowserWindow, ipcMain, Menu, clipboard, screen } = require('electr
 const path = require('path');
 const fs = require('fs');
 
-// Show "Browser" in the app menu without moving the existing profile folder
-const profileDir = app.getPath('userData');
-app.setName('Browser');
+// Show "Surf" in the app menu, but keep the profile in the folder it has always used
+// (the app was called "Browser" before), so tabs and settings carry over
+const profileDir = path.join(app.getPath('appData'), 'Browser');
+app.setName('Surf');
 app.setPath('userData', profileDir);
 
 /* ------------------------------------------------------------------ */
@@ -286,7 +287,7 @@ function createBrowserWindow({ query = {}, bounds = {}, background = '#f3f1f8' }
     y: bounds.y,
     minWidth: 720,
     minHeight: 480,
-    title: 'Browser',
+    title: 'Surf',
     backgroundColor: background,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 16, y: 16 },
@@ -337,7 +338,7 @@ function createMiniWindow(url) {
     height: 720,
     minWidth: 380,
     minHeight: 360,
-    title: 'Browser',
+    title: 'Surf',
     backgroundColor: '#ffffff',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 14, y: 14 },
@@ -377,6 +378,10 @@ app.on('web-contents-created', (_event, contents) => {
     // A lone Shift tap while hovering a link opens an AI link preview (never swallowed)
     if (input.type === 'keyDown' && input.key === 'Shift' && !input.isAutoRepeat && !input.meta && !input.control && !input.alt && isBrowserWindow(win)) {
       sendToWindow(win, 'shift-key');
+    }
+    // Releasing Control commits the ⌃Tab tab switcher
+    if (input.type === 'keyUp' && input.key === 'Control' && isBrowserWindow(win)) {
+      sendToWindow(win, 'control-up');
     }
     const action = matchShortcut(input, win);
     if (!action) return;
@@ -429,7 +434,30 @@ app.on('web-contents-created', (_event, contents) => {
 function buildMenu() {
   const isMac = process.platform === 'darwin';
   const template = [
-    ...(isMac ? [{ role: 'appMenu' }] : []),
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        {
+          label: 'Settings…',
+          accelerator: 'CmdOrCtrl+,',
+          registerAccelerator: false,
+          click: () => {
+            const focused = BrowserWindow.getFocusedWindow();
+            sendToWindow(isBrowserWindow(focused) ? focused : mainWindow, 'shortcut', 'settings');
+          },
+        },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    }] : []),
     {
       label: 'File',
       submenu: [
@@ -444,7 +472,7 @@ function buildMenu() {
     {
       label: 'View',
       submenu: [
-        { role: 'toggleDevTools', label: 'Toggle Browser DevTools' },
+        { role: 'toggleDevTools', label: 'Toggle Surf DevTools' },
         { type: 'separator' },
         { role: 'togglefullscreen' },
       ],
@@ -468,6 +496,8 @@ const features = require('./main-features')(M);
 /* ------------------------------------------------------------------ */
 
 app.whenReady().then(() => {
+  // The packaged app gets its icon from the bundle; when run with `npm start`, set it here
+  if (!app.isPackaged && app.dock) app.dock.setIcon(path.join(__dirname, 'build', 'icon.png'));
   sessions.configureAll();
   buildMenu();
 

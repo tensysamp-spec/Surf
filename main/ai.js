@@ -318,7 +318,7 @@ module.exports = function setupAi() {
   // Raw text of a URL (RSS/Atom feeds, JSON APIs for live folders)
   ipcMain.handle('fetch-text', async (_event, url) => {
     try {
-      const res = await net.fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Browser live folders)', Accept: '*/*' } });
+      const res = await net.fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Surf live folders)', Accept: '*/*' } });
       if (!res.ok) return { error: `HTTP ${res.status}` };
       return { text: await res.text() };
     } catch (err) {

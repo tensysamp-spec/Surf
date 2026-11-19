@@ -1,12 +1,12 @@
 {
   "name": "browser",
   "version": "1.0.0",
-  "description": "A minimal dark-themed desktop browser",
+  "description": "A desktop web browser for macOS",
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron .",
-    "package": "electron-builder --mac --dir && codesign --force --deep --sign - dist/mac*/Browser.app"
+    "package": "electron-builder --mac --dir && codesign --force --deep --sign - dist/mac*/Surf.app"
   },
   "keywords": [],
   "author": "",
@@ -21,10 +21,10 @@
     "@mozilla/readability": "^0.6.0",
     "electron-chrome-web-store": "^0.13.0"
   },
-  "productName": "Browser",
+  "productName": "Surf",
   "build": {
     "appId": "app.browser.desktop",
-    "productName": "Browser",
+    "productName": "Surf",
     "directories": {
       "output": "dist"
     },
@@ -32,7 +32,8 @@
       "**/*",
       "!dist/**",
       "!server/**",
-      "!*.md"
+      "!*.md",
+      "!build/icon.svg"
     ],
     "protocols": [
       {
@@ -57,7 +58,8 @@
             ]
           }
         ]
-      }
+      },
+      "icon": "build/icon.icns"
     }
   }
 }
