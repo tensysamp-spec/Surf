@@ -2402,57 +2402,121 @@ body.private .space-name::after { content: " · nothing is saved"; font-weight: 
 /* ------------------------------------------------------------------ */
 
 .intro-overlay {
+  --intro-dim: rgba(20, 16, 40, 0.48);
   position: fixed;
   inset: 0;
   z-index: 70;
-  animation: fade-in 200ms var(--ease);
+  animation: fade-in 220ms var(--ease);
+  transition: opacity 180ms var(--ease);
 }
+body.dark .intro-overlay { --intro-dim: rgba(0, 0, 0, 0.58); }
+.intro-overlay.leaving { opacity: 0; pointer-events: none; }
+/* Stepped aside while a "Try it" opens the real UI */
+.intro-overlay.suspended { opacity: 0; visibility: hidden; pointer-events: none; }
+
+/* Collapsed / compact sidebar slides in for the tour without changing the saved setting */
+body.sidebar-collapsed.intro-reveal #sidebar { transform: none; }
+
 .intro-hole {
   position: absolute;
   border-radius: var(--radius);
-  box-shadow: 0 0 0 2px var(--accent), 0 0 0 9999px rgba(20, 16, 40, 0.5);
-  transition: left var(--t), top var(--t), width var(--t), height var(--t);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 6px var(--accent-soft), 0 0 0 9999px var(--intro-dim);
   pointer-events: none;
 }
-.intro-overlay.centered .intro-hole {
-  left: 50%; top: 50%; width: 0; height: 0;
-  box-shadow: 0 0 0 9999px rgba(20, 16, 40, 0.5);
+.intro-overlay.centered .intro-hole { box-shadow: 0 0 0 9999px var(--intro-dim); }
+/* Glide only between steps; while tracking a moving target it follows instantly */
+.intro-overlay.moving .intro-hole {
+  transition: left 320ms var(--ease), top 320ms var(--ease), width 320ms var(--ease), height 320ms var(--ease), box-shadow 320ms var(--ease);
 }
+.intro-overlay.moving .intro-card { transition: left 320ms var(--ease), top 320ms var(--ease); }
+
 .intro-card {
   position: absolute;
+  left: 0;
+  top: 0;
   width: min(340px, calc(100vw - 24px));
   padding: 18px 18px 14px;
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  box-shadow: var(--shadow-lg), 0 0 0 0.5px var(--line);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  transition: left var(--t), top var(--t);
-  animation: pop-in 180ms var(--ease);
+  gap: 12px;
+  animation: pop-in 200ms var(--ease);
 }
-.intro-overlay.centered .intro-card {
-  left: 0; right: 0; top: 24vh;
-  margin: 0 auto;
-  width: min(400px, calc(100vw - 24px));
-  transition: none;
+.intro-overlay.centered .intro-card { width: min(400px, calc(100vw - 24px)); }
+.intro-card.step-in .intro-body { animation: intro-step-in 260ms var(--ease); }
+@keyframes intro-step-in {
+  from { opacity: 0; transform: translateY(3px); }
 }
-.intro-card h3 { font-size: 15px; }
-.intro-card p { color: var(--text-dim); line-height: 1.5; }
+.intro-body { display: flex; flex-direction: column; gap: 8px; }
+.intro-card h3 { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+.intro-card p { color: var(--text-dim); line-height: 1.55; }
 .intro-count { color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
-.intro-tips { margin: 2px 0; }
+.intro-note { font-size: 12px; color: var(--text-faint) !important; }
+
+.intro-keys { display: inline-flex; align-items: center; gap: 2px; vertical-align: 1px; white-space: nowrap; }
+.intro-card kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--glass-1);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  font: 500 11.5px/16px var(--font);
+  color: var(--text);
+  text-align: center;
+}
+.intro-key-word { font-size: 12px; color: var(--text-dim); padding: 0 2px; }
+.intro-tips {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 2px 0;
+}
+.intro-tips > span:not(.intro-keys) { color: var(--text-dim); line-height: 1.4; }
+
+.intro-try {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin-top: 2px;
+  padding: 0 11px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 550;
+  font-size: 12.5px;
+  transition: background var(--t-fast), filter var(--t-fast);
+}
+.intro-try svg { width: 14px; height: 14px; }
+.intro-try:hover { filter: brightness(1.06); background: color-mix(in srgb, var(--accent) 24%, transparent); }
+
 .intro-dots { display: flex; gap: 5px; margin-top: 2px; }
 .intro-dot {
   width: 6px; height: 6px; padding: 0;
   border: 0; border-radius: 3px;
   background: var(--glass-3);
   cursor: pointer;
-  transition: width var(--t-fast), background var(--t-fast);
+  transition: width var(--t), background var(--t-fast);
 }
-.intro-dot.active { width: 16px; background: var(--accent); }
+.intro-dot.done { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.intro-dot.active { width: 18px; background: var(--accent); }
 .intro-actions { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
 .intro-spacer { flex: 1; }
 .intro-skip:hover { background: var(--glass-2); color: var(--text); }
+.intro-card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.intro-card .btn.primary:focus-visible { box-shadow: 0 0 0 4px var(--accent-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-overlay, .intro-card, .intro-card.step-in .intro-body { animation: none; }
+  .intro-overlay.moving .intro-hole, .intro-overlay.moving .intro-card, .intro-dot { transition: none; }
+}
 
 /* ------------------------------------------------------------------ */
 /* Motion polish: rows, folders, buttons                               */
