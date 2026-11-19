@@ -8,7 +8,9 @@ const U = require('./util');
 const T = () => ctx.tabs;
 
 // Injected into pages. It reports sign-ins and login-field focus through a console
-// message the browser listens for; credentials are only ever filled by the browser.
+// message the browser listens for. It runs in the page's own world, so the page can fake
+// these messages: a focus message only offers a fill in Surf's UI, and the fill itself is
+// done by the main process in an isolated world (pw-fill), never through page code.
 const PAGE_SCRIPT = `(() => {
   if (window.__bpInstalled) return;
   window.__bpInstalled = true;
@@ -41,19 +43,6 @@ const PAGE_SCRIPT = `(() => {
     const isLogin = t.type === 'password' || (['text', 'email', 'tel', ''].includes(t.type) && (/username|email/.test(t.autocomplete || '') || scope.querySelector('input[type=password]')));
     if (isLogin) send('focus', {});
   }, true);
-  window.__bpFill = (username, password) => {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-    const set = (el, v) => {
-      if (!el || v == null) return;
-      setter.call(el, v);
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    };
-    const pw = [...document.querySelectorAll('input[type=password]')].find(visible) || document.querySelector('input[type=password]');
-    const user = pw ? findUser(pw) : document.querySelector('input[type=email], input[autocomplete=username]');
-    set(user, username);
-    set(pw, password);
-  };
 })()`;
 
 const originOf = (url) => {
@@ -85,6 +74,7 @@ async function onSubmit(tab, { username, password }) {
 function showSavePrompt(origin, username, password, isUpdate) {
   const host = U.$('pw-prompt');
   host.replaceChildren();
+  host.dataset.kind = 'save';
   const text = U.el('div', 'perm-text');
   text.appendChild(U.icon('key'));
   const msg = U.el('span');
@@ -116,28 +106,39 @@ function showSavePrompt(origin, username, password, isUpdate) {
 /* Autofill                                                            */
 /* ------------------------------------------------------------------ */
 
-const filledPages = new WeakMap(); // tab -> url already filled
+const filledPages = new WeakMap(); // tab -> url already filled (or the offer dismissed)
+const CLICK_DELAY = 500; // ignore clicks this soon after the offer appears (no click-through)
 
+// A login field got focus: offer the saved accounts in Surf's own UI. Nothing is filled
+// until the user clicks one, since the page can send this message whenever it likes.
 async function onFocus(tab) {
   const origin = originOf(tab.url);
   if (!origin || filledPages.get(tab) === tab.url) return;
   const logins = await ipcRenderer.invoke('pw-for-origin', origin);
-  if (!logins.length) return;
-  if (logins.length === 1) {
-    fill(tab, logins[0]);
-    return;
-  }
-  // Several accounts: let the user choose
+  if (!logins.length || originOf(tab.url) !== origin) return;
   const host = U.$('pw-prompt');
+  if (!host.hidden && host.dataset.kind === 'save') return; // don't replace a save offer
+  if (!host.hidden && host.dataset.kind === 'fill' && host.dataset.tab === tab.entryId) return;
   host.replaceChildren();
+  host.dataset.kind = 'fill';
+  host.dataset.tab = tab.entryId;
+  const shownAt = Date.now();
   const text = U.el('div', 'perm-text');
-  text.append(U.icon('key'), U.el('span', null, `Sign in to ${U.hostOf(origin)} as`));
+  text.append(U.icon('key'), U.el('span', null, `Fill saved password for ${U.hostOf(origin)}${logins.length > 1 ? ' as' : '?'}`));
+  const close = () => { host.hidden = true; };
   const actions = U.el('div', 'perm-actions');
+  const notNow = U.el('button', 'btn', 'Not now');
+  notNow.addEventListener('click', () => {
+    filledPages.set(tab, tab.url);
+    close();
+  });
+  actions.appendChild(notNow);
   for (const login of logins.slice(0, 4)) {
-    const btn = U.el('button', 'btn', login.username || '(no username)');
+    const btn = U.el('button', logins.length > 1 ? 'btn' : 'btn primary', logins.length > 1 ? login.username || '(no username)' : `Fill${login.username ? ` as ${login.username}` : ''}`);
     btn.addEventListener('click', () => {
-      host.hidden = true;
-      fill(tab, login);
+      if (Date.now() - shownAt < CLICK_DELAY) return;
+      close();
+      fill(tab, login, origin);
     });
     actions.appendChild(btn);
   }
@@ -145,15 +146,24 @@ async function onFocus(tab) {
   host.hidden = false;
 }
 
-function fill(tab, login) {
+// The main process checks the tab is still on the login's origin and fills it in an isolated world
+async function fill(tab, login, origin) {
+  if (originOf(tab.url) !== origin || !tab.webContentsId) return;
   filledPages.set(tab, tab.url);
-  tab.webview.executeJavaScript(`window.__bpFill && window.__bpFill(${JSON.stringify(login.username)}, ${JSON.stringify(login.password)})`).catch(() => {});
+  const ok = await ipcRenderer.invoke('pw-fill', { webContentsId: tab.webContentsId, id: login.id }).catch(() => false);
+  if (ok) tab.webview.focus();
+  else U.toast('Couldn’t fill the password on this page');
 }
 
 function bindTab(tab) {
   const wv = tab.webview;
   wv.addEventListener('dom-ready', () => {
     if (originOf(tab.url)) wv.executeJavaScript(PAGE_SCRIPT).catch(() => {});
+  });
+  // A fill offer belongs to the page it was made for
+  wv.addEventListener('did-navigate', () => {
+    const host = U.$('pw-prompt');
+    if (host.dataset.kind === 'fill' && host.dataset.tab === tab.entryId) host.hidden = true;
   });
   wv.addEventListener('console-message', (e) => {
     const message = e.message || '';

@@ -16,11 +16,22 @@ function renderHeader(title, favicon) {
   U.$('peek-host').textContent = U.compactUrl(currentUrl);
 }
 
+function partitionNow() {
+  const T = ctx.tabs;
+  if (U.PRIVATE_PARTITION) return U.PRIVATE_PARTITION;
+  if (T.activeEntryId && T.findEntry(T.activeEntryId)) return T.partitionFor(T.activeEntryId);
+  const space = T.activeSpace();
+  return space && space.isolated ? `persist:space-${space.id}` : null;
+}
+
 function open(url) {
   close();
   currentUrl = url;
   webview = document.createElement('webview');
   webview.setAttribute('allowpopups', '');
+  // Same cookie jar as the tab it was opened from (private window / isolated Space)
+  const partition = partitionNow();
+  if (partition) webview.setAttribute('partition', partition);
   webview.setAttribute('src', url);
   webview.className = 'peek-webview';
   U.$('peek-body').appendChild(webview);

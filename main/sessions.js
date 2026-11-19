@@ -73,6 +73,8 @@ module.exports = function setupSessions(M) {
   }
 
   function setupBlocker(ses) {
+    // Private windows still block, but leave no trace in the saved privacy report
+    const record = ses.isPersistent();
     ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
       if (!shieldsEnabled) return callback({});
       let hostname;
@@ -89,10 +91,12 @@ module.exports = function setupSessions(M) {
       if (site && disabledHosts.has(site)) return callback({});
 
       blockedTotal++;
-      stats.total++;
-      stats.trackers[domain] = (stats.trackers[domain] || 0) + 1;
-      if (site) stats.sites[site] = (stats.sites[site] || 0) + 1;
-      saveStats();
+      if (record) {
+        stats.total++;
+        stats.trackers[domain] = (stats.trackers[domain] || 0) + 1;
+        if (site) stats.sites[site] = (stats.sites[site] || 0) + 1;
+        saveStats();
+      }
 
       const id = details.webContentsId;
       if (id != null) {

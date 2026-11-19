@@ -9,6 +9,9 @@ const U = require('./util');
 const KEY = 'browser.shelf';
 const LIMIT = 40;
 const IMAGE_RE = /\.(png|jpe?g|gif|webp|avif|bmp|svg|heic)$/i;
+const TEXT_MAX = 10000;
+// Only web and mail links go on the shelf (clicking one opens it in a tab)
+const LINK_RE = /^(https?:\/\/|mailto:)/i;
 
 // { id, kind: 'file' | 'link' | 'text', title, path?, url?, text?, favicon?, time }
 let items = U.store.get(KEY, []);
@@ -44,17 +47,18 @@ function addFromDrop(dt) {
     files.forEach((f) => add({ kind: 'file', path: f, title: f.split('/').pop() }));
     return true;
   }
-  const uri = (dt.getData('text/uri-list') || '').split('\n').find((l) => l && !l.startsWith('#'));
-  if (uri) {
+  const uri = ((dt.getData('text/uri-list') || '').split('\n').find((l) => l && !l.startsWith('#')) || '').trim();
+  if (LINK_RE.test(uri)) {
     const nodeId = dt.getData('text/x-browser-node');
     const entry = nodeId && ctx.tabs.findEntry(nodeId);
     const title = entry ? ctx.tabs.entryTitle(entry) : U.hostOf(uri) || uri;
-    add({ kind: 'link', url: uri.trim(), title, favicon: entry ? ctx.tabs.entryFavicon(entry) : null });
+    add({ kind: 'link', url: uri, title, favicon: entry ? ctx.tabs.entryFavicon(entry) : null });
     return true;
   }
-  const text = (dt.getData('text/plain') || '').trim();
+  const text = (dt.getData('text/plain') || '').trim().slice(0, TEXT_MAX);
   if (!text) return false;
-  if (U.looksLikeUrl(text) && !/\s/.test(text)) add({ kind: 'link', url: U.resolveInput(text), title: U.hostOf(U.resolveInput(text)) || text });
+  const url = U.looksLikeUrl(text) && !/\s/.test(text) ? U.resolveInput(text) : null;
+  if (url && LINK_RE.test(url)) add({ kind: 'link', url, title: U.hostOf(url) || text });
   else add({ kind: 'text', text, title: text.slice(0, 80) });
   return true;
 }
@@ -235,9 +239,12 @@ function setup() {
   }
 
   // Files that were moved or deleted since last time fall off the shelf
-  Promise.all(items.map((x) => (x.kind === 'file' ? ipcRenderer.invoke('shelf-file-exists', x.path) : true))).then((exists) => {
+  // (by id: items may be added or removed while we wait)
+  const checked = items.slice();
+  Promise.all(checked.map((x) => (x.kind === 'file' ? ipcRenderer.invoke('shelf-file-exists', x.path) : true))).then((exists) => {
+    const gone = new Set(checked.filter((_, i) => !exists[i]).map((x) => x.id));
     const before = items.length;
-    items = items.filter((_, i) => exists[i]);
+    items = items.filter((x) => !gone.has(x.id));
     if (items.length !== before) save();
     render();
   });

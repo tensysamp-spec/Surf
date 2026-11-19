@@ -1,7 +1,7 @@
 // Screenshots, password manager (encrypted with the macOS Keychain via safeStorage),
 // and mouse gestures (right-drag on a page).
 
-const { app, ipcMain, net, webContents, clipboard, ClipboardItem, nativeImage, safeStorage, systemPreferences } = require('electron');
+const { app, ipcMain, webContents, clipboard, ClipboardItem, nativeImage, safeStorage, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -21,10 +21,11 @@ module.exports = function setupTools(M) {
   /* (a cross-origin <img> would taint the canvas)                    */
   /* ---------------------------------------------------------------- */
 
-  ipcMain.handle('fetch-icon', async (_event, url) => {
+  ipcMain.handle('fetch-icon', async (event, url) => {
     if (typeof url !== 'string' || !/^https?:/i.test(url)) return null;
     try {
-      const res = await net.fetch(url, { signal: AbortSignal.timeout(6000) });
+      // The asking window's session: private windows don't send the normal profile's cookies
+      const res = await M.sessionFor(event.sender).fetch(url, { signal: AbortSignal.timeout(6000) });
       if (!res.ok) return null;
       const type = (res.headers.get('content-type') || 'image/png').split(';')[0];
       if (!type.startsWith('image/')) return null;
@@ -122,10 +123,60 @@ module.exports = function setupTools(M) {
 
   ipcMain.handle('pw-available', () => safeStorage.isEncryptionAvailable());
 
-  // Logins for one origin (used for autofill) — only for our own browser windows
+  // Accounts saved for one origin (to offer autofill) — usernames only; passwords never
+  // leave the main process except into the page itself via pw-fill
   ipcMain.handle('pw-for-origin', (event, origin) => {
     if (!M.isBrowserWindow(M.windowOf(event.sender))) return [];
-    return loadVault().logins.filter((l) => l.origin === origin).map(({ id, username, password }) => ({ id, username, password }));
+    return loadVault().logins.filter((l) => l.origin === origin).map(({ id, username }) => ({ id, username }));
+  });
+
+  // Fill a login into a tab, after the user picked it in Surf's own UI. The code runs in an
+  // isolated world, so page scripts can't intercept it or see the credentials before they're
+  // in the fields, and only in the top frame of the exact origin the login was saved for.
+  const PW_WORLD = 4242;
+  const FILL_SCRIPT = (origin, username, password) => `(() => {
+    if (window !== window.top || location.origin !== ${JSON.stringify(origin)}) return false;
+    const visible = (el) => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+    const findUser = (pw) => {
+      const scope = pw.form || document;
+      const inputs = [...scope.querySelectorAll('input')].filter((i) => ['text', 'email', 'tel', ''].includes(i.type) && visible(i));
+      const before = inputs.filter((i) => i.compareDocumentPosition(pw) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return before[before.length - 1] || inputs[0] || null;
+    };
+    // This world's own (untouched) setter, so frameworks like React notice the change
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const set = (el, v) => {
+      if (!el || v == null) return;
+      setter.call(el, v);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const pw = [...document.querySelectorAll('input[type=password]')].find(visible) || document.querySelector('input[type=password]');
+    // (a username-first sign-in page has no password field yet)
+    const user = pw ? findUser(pw) : document.querySelector('input[type=email], input[autocomplete=username]');
+    if (!pw && !user) return false;
+    set(user, ${JSON.stringify(username)});
+    set(pw, ${JSON.stringify(password)});
+    return true;
+  })()`;
+
+  ipcMain.handle('pw-fill', async (event, { webContentsId, id }) => {
+    if (!M.isBrowserWindow(M.windowOf(event.sender))) return false;
+    // Only a tab (<webview>) inside the window that asked
+    const contents = webContents.fromId(webContentsId);
+    if (!contents || contents.isDestroyed() || contents.getType() !== 'webview' || !contents.hostWebContents || contents.hostWebContents.id !== event.sender.id) return false;
+    const login = loadVault().logins.find((l) => l.id === id);
+    if (!login) return false;
+    let origin = null;
+    try {
+      origin = new URL(contents.getURL()).origin;
+    } catch { /* no page */ }
+    if (origin !== login.origin) return false;
+    try {
+      return !!(await contents.executeJavaScriptInIsolatedWorld(PW_WORLD, [{ code: FILL_SCRIPT(login.origin, login.username, login.password) }]));
+    } catch {
+      return false;
+    }
   });
 
   ipcMain.handle('pw-should-offer', (_event, { origin, username, password }) => {

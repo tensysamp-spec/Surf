@@ -657,17 +657,23 @@ function todayEntryFor(id) {
   return copy;
 }
 
+// Is this tab already in a full split? (Checked before todayEntryFor, so a full split
+// doesn't leave stray today copies of pinned/favorite tabs behind)
+function splitFull(id) {
+  const loc = locate(id);
+  if (!loc || !loc.parent || loc.parent.type !== 'split' || loc.parent.children.length < SPLIT_MAX) return false;
+  U.toast(`A split view holds up to ${SPLIT_MAX} tabs`);
+  return true;
+}
+
 function splitWith(baseId, otherId) {
+  if (splitFull(baseId)) return;
   const base = todayEntryFor(baseId);
   const other = todayEntryFor(otherId);
   if (!base || !other || base.id === other.id) return;
 
   const baseLoc = locate(base.id);
   let split = baseLoc.parent && baseLoc.parent.type === 'split' ? baseLoc.parent : null;
-  if (split && split.children.length >= SPLIT_MAX) {
-    U.toast(`A split view holds up to ${SPLIT_MAX} tabs`);
-    return;
-  }
 
   const otherLoc = locate(other.id);
   removeFromList(otherLoc);
@@ -683,7 +689,7 @@ function splitWith(baseId, otherId) {
 }
 
 function splitWithUrl(url) {
-  if (!activeEntryId) return;
+  if (!activeEntryId || splitFull(activeEntryId)) return;
   const entry = newEntry({ url });
   activeSpace().today.unshift(entry);
   splitWith(activeEntryId, entry.id);
@@ -978,7 +984,12 @@ function sweepArchive() {
   let changed = false;
 
   for (const space of spaces) {
-    const stale = (e) => !displayed.includes(e.id) && e.lastActive < cutoff;
+    // Like hibernate: a tab playing audio or media isn't stale, however long ago it was visited
+    const playing = (e) => {
+      const tab = live.get(e.id);
+      return !!tab && (tab.audible || tab.mediaPlaying);
+    };
+    const stale = (e) => !displayed.includes(e.id) && e.lastActive < cutoff && !playing(e);
     const keep = [];
     for (const node of space.today) {
       if (node.type === 'entry' && stale(node)) {

@@ -324,7 +324,9 @@ function growFolder(children) {
 // Shrink the children away, then actually close the folder
 function collapseFolder(wrap, folderId) {
   const children = wrap.querySelector(':scope > .folder-children');
-  if (!children || wrap.classList.contains('closing') || matchMedia('(prefers-reduced-motion: reduce)').matches) return T().toggleFolder(folderId);
+  // Already closing: the pending timer will close it (toggling now would reopen it after)
+  if (wrap.classList.contains('closing')) return;
+  if (!children || matchMedia('(prefers-reduced-motion: reduce)').matches) return T().toggleFolder(folderId);
   wrap.classList.add('closing');
   children.style.height = `${children.offsetHeight}px`;
   void children.offsetHeight;

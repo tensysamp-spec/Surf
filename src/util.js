@@ -17,7 +17,7 @@ const SEARCH_ENGINES = {
 const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
 const PRIVATE = params.get('private') === '1';
 const PRIVATE_PARTITION = PRIVATE ? params.get('partition') : null;
-const PRIVATE_FRESH = new Set(['browser.spaces', 'browser.archive', 'browser.activeSpace', 'browser.history', 'browser.downloads', 'browser.highlights', 'browser.sidebarCollapsed']);
+const PRIVATE_FRESH = new Set(['browser.spaces', 'browser.archive', 'browser.activeSpace', 'browser.history', 'browser.downloads', 'browser.highlights', 'browser.shelf', 'browser.sidebarCollapsed']);
 const memory = new Map();
 
 const store = {

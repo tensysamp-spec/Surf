@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, Menu, clipboard, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, clipboard, screen, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 // Show "Surf" in the app menu, but keep the profile in the folder it has always used
-// (the app was called "Browser" before), so tabs and settings carry over
-const profileDir = path.join(app.getPath('appData'), 'Browser');
+// (the app was called "Browser" before), so tabs and settings carry over.
+// SURF_PROFILE_DIR points it at a separate profile instead (used to record demo videos).
+const profileDir = process.env.SURF_PROFILE_DIR || path.join(app.getPath('appData'), 'Browser');
 app.setName('Surf');
 app.setPath('userData', profileDir);
 
@@ -17,6 +18,7 @@ const browserWindows = new Set(); // main + private windows (full browser UI)
 const miniWindows = new Set();
 const escapeCaptured = new Map(); // window id -> bool
 let privateCount = 0;
+const privatePartitions = new Map(); // private window id -> its pages' in-memory partition
 
 // Which top-level window does a webContents (or the <webview> inside it) belong to?
 function ownerWindow(contents) {
@@ -37,8 +39,17 @@ function sendToOwner(contents, channel, payload) {
   sendToWindow(isBrowserWindow(win) ? win : mainWindow, channel, payload);
 }
 
+// The session a window's own requests should use: a private window's UI runs in the
+// default session, but anything it fetches must use its private partition instead
+function sessionFor(contents) {
+  const win = ownerWindow(contents);
+  const partition = win && privatePartitions.get(win.id);
+  return partition ? session.fromPartition(partition) : contents.session;
+}
+
 const M = {
   ownerWindow,
+  sessionFor,
   windowOf,
   isBrowserWindow,
   sendToMain,
@@ -192,7 +203,8 @@ function buildContextMenu(contents, params) {
       ...(inBrowser ? [
         { label: 'Open Link in Peek', click: action('peek', params.linkURL) },
         { label: 'Open Link in Split View', click: action('split', params.linkURL) },
-        { label: 'Open Link in Little Window', click: () => createMiniWindow(params.linkURL) },
+        // Little windows use the default session, so a private window opens the link in a private tab instead
+        { label: 'Open Link in Little Window', click: contents.session.isPersistent() ? () => createMiniWindow(params.linkURL) : action('new-tab', params.linkURL) },
         { label: 'Summarize Link with AI', click: action('summarize-link', params.linkURL) },
       ] : []),
       { label: 'Copy Link Address', click: () => clipboard.writeText(params.linkURL) },
@@ -326,7 +338,11 @@ function createWindow() {
 // Private window: in-memory session, nothing saved
 function createPrivateWindow() {
   privateCount++;
-  const win = createBrowserWindow({ query: { private: '1', partition: `private-${Date.now()}-${privateCount}` }, background: '#1c1828' });
+  const partition = `private-${Date.now()}-${privateCount}`;
+  const win = createBrowserWindow({ query: { private: '1', partition }, background: '#1c1828' });
+  const id = win.id;
+  privatePartitions.set(id, partition);
+  win.on('closed', () => privatePartitions.delete(id));
   win.once('ready-to-show', () => win.show());
   return win;
 }
@@ -372,12 +388,22 @@ app.on('web-contents-created', (_event, contents) => {
     webPreferences.contextIsolation = true;
   });
 
+  // A lone Shift tap (pressed and released with nothing else in between) while hovering
+  // a link opens an AI link preview — not Shift held for a capital letter or Shift+click
+  let shiftTap = false;
+  contents.on('input-event', (_e, input) => {
+    if (input.type === 'mouseDown') shiftTap = false;
+  });
+
   contents.on('before-input-event', (event, input) => {
     const win = ownerWindow(contents);
     if (!win) return;
-    // A lone Shift tap while hovering a link opens an AI link preview (never swallowed)
-    if (input.type === 'keyDown' && input.key === 'Shift' && !input.isAutoRepeat && !input.meta && !input.control && !input.alt && isBrowserWindow(win)) {
-      sendToWindow(win, 'shift-key');
+    if (input.type === 'keyDown' && !input.isAutoRepeat) {
+      shiftTap = input.key === 'Shift' && !input.meta && !input.control && !input.alt;
+    } else if (input.type === 'keyUp' && input.key === 'Shift') {
+      // Never swallowed: the page still sees its Shift events
+      if (shiftTap && isBrowserWindow(win)) sendToWindow(win, 'shift-key');
+      shiftTap = false;
     }
     // Releasing Control commits the ⌃Tab tab switcher
     if (input.type === 'keyUp' && input.key === 'Control' && isBrowserWindow(win)) {
@@ -404,6 +430,8 @@ app.on('web-contents-created', (_event, contents) => {
   if (contents.getType() === 'webview') {
     // target="_blank" / window.open -> new tab inside our browser; Shift+click -> Peek
     contents.setWindowOpenHandler(({ url, disposition, features: winFeatures }) => {
+      // Only web pages may open tabs (no file:, javascript:, chrome:, …)
+      if (!/^https?:\/\//i.test(url)) return { action: 'deny' };
       const win = ownerWindow(contents);
       if (!isBrowserWindow(win)) {
         openInMainWindow(url);

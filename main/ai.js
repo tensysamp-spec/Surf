@@ -14,7 +14,7 @@ const AI_BETAS = ['server-side-fallback-2026-07-01'];
 // Small open models read far less than Claude; long pages are cut to fit
 const SERVER_CHAR_LIMIT = 40000;
 
-module.exports = function setupAi() {
+module.exports = function setupAi(M) {
   const keyFile = () => path.join(app.getPath('userData'), 'ai-key.bin');
   const serverFile = () => path.join(app.getPath('userData'), 'ai-server.json');
   const serverTokenFile = () => path.join(app.getPath('userData'), 'ai-server-token.bin');
@@ -297,9 +297,10 @@ module.exports = function setupAi() {
   });
 
   // Readable text of a URL (for link summaries / previews / chatting with unloaded tabs)
-  ipcMain.handle('fetch-page-text', async (_event, url) => {
+  // (with the asking window's cookies, so a private window never sends the normal profile's)
+  ipcMain.handle('fetch-page-text', async (event, url) => {
     try {
-      const res = await net.fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const res = await M.sessionFor(event.sender).fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
       const html = await res.text();
       const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
       const text = html

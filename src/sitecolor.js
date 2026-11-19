@@ -5,12 +5,18 @@ const { ipcRenderer } = require('electron');
 const ctx = require('./ctx');
 const U = require('./util');
 
-const KEY = 'browser.siteColors.v2';
+// v3: v2 could hold failed lookups saved as '' (no color) for good
+const KEY = 'browser.siteColors.v3';
 const LIMIT = 400;
 
 // favicon URL -> 'hsl(...)', or '' when the icon has no real color (gray, black, white)
 const cache = new Map(Object.entries(U.store.get(KEY, {})));
 const pending = new Set();
+// Lookups that failed (offline, timeout, bad image) aren't cached; they retry after a
+// backoff that doubles each time: key -> { until, delay }
+const failed = new Map();
+const RETRY_MIN = 60 * 1000;
+const RETRY_MAX = 60 * 60 * 1000;
 
 let saveTimer = null;
 function persist() {
@@ -91,7 +97,7 @@ function dominant(img) {
 
 async function extract(url) {
   const src = url.startsWith('data:') ? url : await ipcRenderer.invoke('fetch-icon', url);
-  if (!src) return '';
+  if (!src) throw new Error('icon unavailable');
   return dominant(await loadImage(src));
 }
 
@@ -108,17 +114,25 @@ function get(url) {
   if (!url) return null;
   const key = keyOf(url);
   if (cache.has(key)) return cache.get(key) || null;
+  const failure = failed.get(key);
+  if (failure && Date.now() < failure.until) return null;
   if (!pending.has(key)) {
     pending.add(key);
-    extract(url)
-      .catch(() => '')
-      .then((color) => {
+    extract(url).then(
+      (color) => {
         pending.delete(key);
+        failed.delete(key);
         cache.delete(key);
         cache.set(key, color);
         persist();
         if (color) rerender();
-      });
+      },
+      () => {
+        pending.delete(key);
+        const delay = failure ? Math.min(failure.delay * 2, RETRY_MAX) : RETRY_MIN;
+        failed.set(key, { until: Date.now() + delay, delay });
+      },
+    );
   }
   return null;
 }
