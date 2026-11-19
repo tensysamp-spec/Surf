@@ -391,9 +391,15 @@ function contextMenu(items, x, y) {
 
   document.body.appendChild(node);
   const { innerWidth: W, innerHeight: H } = window;
-  const rect = node.getBoundingClientRect();
-  node.style.left = `${Math.min(x, W - rect.width - 8)}px`;
-  node.style.top = `${Math.min(y, H - rect.height - 8)}px`;
+  // Layout size, not getBoundingClientRect: the opening animation is scaling the menu down right now
+  const rect = { width: node.offsetWidth, height: node.offsetHeight };
+  // Menus opened low in the window (e.g. from the sidebar's bottom bar) grow upward;
+  // either way they stay fully on screen (CSS caps the height and lets it scroll)
+  const up = y > H / 2 && y - rect.height >= 8;
+  const top = up ? y - rect.height : y;
+  node.classList.toggle('up', up);
+  node.style.left = `${Math.max(8, Math.min(x, W - rect.width - 8))}px`;
+  node.style.top = `${Math.max(8, Math.min(top, H - rect.height - 8))}px`;
 
   const outside = (e) => {
     if (!node.contains(e.target)) closeContextMenu();

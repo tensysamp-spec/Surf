@@ -436,13 +436,18 @@ function renderSpaces() {
     const mod = process.platform === 'darwin' ? '⌃' : 'Alt+';
     dot.title = `${space.name}${i < 9 ? `  (${mod}${i + 1})` : ''}`;
     dot.appendChild(U.el('span', null, spaceGlyph(space)));
-    dot.addEventListener('click', (e) => {
-      if (space.id === T().activeSpaceId) spaceMenu(space, e.clientX, e.clientY);
+    // Open the menu just above the bar so it doesn't cover the space buttons
+    const openMenu = () => {
+      const r = dot.getBoundingClientRect();
+      spaceMenu(space, r.left, r.top - 6);
+    };
+    dot.addEventListener('click', () => {
+      if (space.id === T().activeSpaceId) openMenu();
       else T().switchSpace(space.id);
     });
     dot.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      spaceMenu(space, e.clientX, e.clientY);
+      openMenu();
     });
     bar.appendChild(dot);
   });

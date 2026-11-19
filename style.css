@@ -2951,3 +2951,8 @@ body.dark .has-site.pinned-tile.active, body.dark .has-site.favorite.active { ba
 .pinned-tile.drop-after { box-shadow: 3px 0 0 var(--accent); }
 .pinned-tile.drag-source { opacity: 0.35; }
 .favorite { isolation: isolate; }
+
+/* Menus never run off the window: cap the height and scroll inside */
+.ctx-menu { max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; }
+.ctx-menu::-webkit-scrollbar { width: 0; }
+.ctx-menu.up { transform-origin: bottom left; }
