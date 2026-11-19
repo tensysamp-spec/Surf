@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: file: chrome-extension:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Browser</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-top">
+        <button id="sidebar-toggle-btn" class="icon-btn" title="Toggle sidebar (⌘S)" aria-label="Toggle sidebar">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        </button>
+        <div class="sidebar-top-spacer"></div>
+        <button id="back-btn" class="icon-btn" title="Back (⌘[)" aria-label="Back" disabled>
+          <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
+        <button id="forward-btn" class="icon-btn" title="Forward (⌘])" aria-label="Forward" disabled>
+          <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+        <button id="reload-btn" class="icon-btn" title="Reload (⌘R)" aria-label="Reload">
+          <svg id="icon-reload" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <svg id="icon-stop" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <form id="omnibox" autocomplete="off">
+        <span id="site-chip" hidden></span>
+        <span id="security-icon" data-state="search" aria-hidden="true">
+          <svg class="sec-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <svg class="sec-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <svg class="sec-insecure" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+          <svg class="sec-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </span>
+        <input id="url-input" type="text" spellcheck="false" placeholder="Search or enter address" aria-label="Address and search bar" />
+        <button id="reader-btn" type="button" class="icon-btn small omni-btn" title="Reader view (⇧⌘R)" aria-label="Reader view">
+          <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </button>
+        <button id="boost-btn" type="button" class="icon-btn small omni-btn" title="Boost this site" aria-label="Boost this site">
+          <svg viewBox="0 0 24 24"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="M3 21l9-9"/><path d="M12.2 6.2L11 5"/></svg>
+        </button>
+        <button id="bookmark-btn" type="button" class="icon-btn small omni-btn" title="Add to favorites" aria-label="Add to favorites">
+          <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </button>
+        <button id="zoom-btn" type="button" class="zoom-badge" hidden></button>
+        <button id="shields-btn" type="button" class="shields" title="Shields" aria-label="Shields">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span id="blocked-count">0</span>
+        </button>
+      </form>
+
+      <div id="sidebar-scroll">
+        <!-- Favorites (global) -->
+        <section id="favorites">
+          <div id="favorites-list"></div>
+          <div id="favorites-empty">Drop here to add a favorite</div>
+        </section>
+
+        <div id="space-title" class="space-title" title="Double-click to rename"></div>
+
+        <!-- Pinned (per space) -->
+        <section id="pinned-zone" class="drop-zone">
+          <div id="pinned-list" class="node-list"></div>
+          <div class="pinned-hint">Drop here to pin</div>
+        </section>
+
+        <div class="sidebar-divider">
+          <button id="clear-today-btn" class="clear-today" title="Archive all of today’s tabs">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+            Clear
+          </button>
+        </div>
+
+        <!-- Today (per space) -->
+        <section id="today-zone" class="drop-zone">
+          <div id="new-tab-btn" class="new-tab-row" role="button" tabindex="0" title="New tab (⌘T) — right-click for more">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>New Tab</span>
+            <button id="new-tab-more" class="new-tab-more" title="More: note, easel, split view, folder…" aria-label="More new options">
+              <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+          <div id="today-list" class="node-list"></div>
+        </section>
+      </div>
+
+      <div id="drop-indicator" hidden></div>
+      <div id="sidebar-resizer" title="Drag to resize"></div>
+
+      <!-- Mini player for media playing in a background tab -->
+      <div id="media-player" hidden></div>
+
+      <!-- Web panels -->
+      <div id="panel-row">
+        <div id="panel-buttons"></div>
+        <button id="add-panel-btn" class="icon-btn small" title="Add a web panel" aria-label="Add a web panel">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="6" y1="12" x2="10" y2="12"/></svg>
+        </button>
+      </div>
+
+      <!-- Shelf: downloads, screenshots and anything dropped on it -->
+      <div id="shelf" aria-label="Shelf">
+        <div class="shelf-inner">
+          <div class="shelf-head">
+            <span class="shelf-title">Shelf</span>
+            <span id="shelf-count"></span>
+            <div class="shelf-head-spacer"></div>
+            <button id="shelf-clear" class="icon-btn small" title="Clear shelf" aria-label="Clear shelf">
+              <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
+            <button id="shelf-close" class="icon-btn small" title="Hide shelf" aria-label="Hide shelf">
+              <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+          <div id="shelf-items"></div>
+        </div>
+      </div>
+
+      <div class="sidebar-bottom">
+        <button id="shelf-btn" class="icon-btn shelf-btn" title="Shelf — downloads, screenshots, things you drop here" aria-label="Shelf">
+          <svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          <span id="shelf-badge" hidden></span>
+        </button>
+        <button id="library-btn" class="icon-btn library-btn" title="Library — history, archive, downloads" aria-label="Library">
+          <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </button>
+        <button id="assistant-btn" class="icon-btn" title="Ask about this page (AI)" aria-label="Assistant">
+          <svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>
+        </button>
+        <button id="settings-btn" class="icon-btn" title="Settings (⌘,)" aria-label="Settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button id="extensions-btn" class="icon-btn" title="Extensions" aria-label="Extensions" hidden>
+          <svg viewBox="0 0 24 24"><path d="M19.44 7.85c-.05.32.06.65.29.88l1.57 1.57c.47.47.7 1.09.7 1.7s-.23 1.24-.7 1.71l-1.61 1.61a.98.98 0 0 1-.84.28c-.47-.07-.8-.48-.97-.93a2.5 2.5 0 1 0-3.21 3.22c.44.16.85.5.92.97a.98.98 0 0 1-.27.83l-1.61 1.61a2.4 2.4 0 0 1-1.7.71 2.4 2.4 0 0 1-1.71-.71l-1.57-1.56a1.03 1.03 0 0 0-.88-.29c-.49.07-.84.5-1.02.97a2.5 2.5 0 1 1-3.23-3.24c.46-.18.89-.53.96-1.02a1.03 1.03 0 0 0-.29-.88L2.7 13.7A2.4 2.4 0 0 1 2 12c0-.62.24-1.23.7-1.7L4.23 8.77c.24-.24.58-.35.92-.3.51.08.87.53 1.07 1.01a2.5 2.5 0 1 0 3.26-3.26c-.48-.2-.93-.56-1.01-1.07-.05-.34.06-.68.3-.92L10.3 2.7A2.4 2.4 0 0 1 12 2c.62 0 1.23.24 1.7.7l1.57 1.57c.23.23.56.34.88.29.49-.07.84-.5 1.02-.97a2.5 2.5 0 1 1 3.24 3.24c-.47.18-.9.53-.97 1.02z"/></svg>
+        </button>
+        <div class="sidebar-bottom-spacer"></div>
+        <div class="spaces-pill">
+          <div id="spaces-bar"></div>
+          <button id="add-space-btn" class="icon-btn small" title="New space" aria-label="New space">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Hover zone that reveals the sidebar while it is collapsed -->
+    <div id="sidebar-edge"></div>
+
+    <!-- Page content -->
+    <section id="content">
+      <div id="drag-strip"></div>
+      <main id="webviews-container">
+        <div id="load-bar"></div>
+      </main>
+      <div id="link-status"></div>
+      <div id="swipe-indicator"><svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></div>
+      <div id="permission-prompt" hidden></div>
+      <div id="pw-prompt" hidden></div>
+      <div id="speech-bar" hidden></div>
+      <div id="dev-pill" hidden></div>
+      <div id="find-bar" hidden>
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="find-input" type="text" spellcheck="false" placeholder="Find in page" />
+        <span id="find-count"></span>
+        <button id="find-prev" class="icon-btn small" title="Previous (⇧⌘G)" aria-label="Previous match"><svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
+        <button id="find-next" class="icon-btn small" title="Next (⌘G)" aria-label="Next match"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></button>
+        <button id="find-close" class="icon-btn small" title="Close (Esc)" aria-label="Close find"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+    </section>
+
+    <!-- Web panel (docked right) -->
+    <aside id="web-panel">
+      <div class="panel-header">
+        <span id="web-panel-title"></span>
+        <button id="panel-reload-btn" class="icon-btn small" title="Reload" aria-label="Reload panel"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+        <button id="panel-open-tab-btn" class="icon-btn small" title="Open as tab" aria-label="Open as tab"><svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></button>
+        <button id="close-panel-btn" class="icon-btn small" title="Close panel" aria-label="Close panel"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div id="web-panel-body"></div>
+    </aside>
+
+    <!-- Tab hover preview -->
+    <div id="tab-preview" hidden></div>
+
+    <!-- Address bar suggestions -->
+    <div id="omni-suggest" hidden></div>
+
+    <!-- Command bar -->
+    <div id="command-overlay">
+      <div id="command-bar" role="dialog" aria-label="Command bar">
+        <div class="command-input-row">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="command-input" type="text" spellcheck="false" placeholder="Search, enter a URL, or type a command…" />
+        </div>
+        <div id="command-results"></div>
+      </div>
+    </div>
+
+    <!-- Peek -->
+    <div id="peek-overlay">
+      <div id="peek-card">
+        <div class="peek-header">
+          <span id="peek-icon" class="row-icon"></span>
+          <div class="peek-text">
+            <span id="peek-title"></span>
+            <span id="peek-host"></span>
+          </div>
+          <button id="peek-split" class="icon-btn" title="Open in split view" aria-label="Open in split view">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+          </button>
+          <button id="peek-open" class="icon-btn" title="Open as tab" aria-label="Open as tab">
+            <svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          </button>
+          <button id="peek-close" class="icon-btn" title="Close (Esc)" aria-label="Close">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div id="peek-body"></div>
+      </div>
+    </div>
+
+    <!-- Library drawer: history, archive, downloads, notes -->
+    <div id="drawer-backdrop"></div>
+    <aside id="library-drawer" class="drawer" aria-label="Library">
+      <div class="drawer-header">
+        <h2>Library</h2>
+        <div class="drawer-actions">
+          <button id="library-clear-btn" class="text-btn" title="Clear">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            <span> Clear</span>
+          </button>
+          <button id="close-library-btn" class="icon-btn" title="Close" aria-label="Close library">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="library-tabs" class="segmented">
+        <button data-tab="history">History</button>
+        <button data-tab="archive">Archive</button>
+        <button data-tab="downloads">Downloads</button>
+        <button data-tab="notes">Notes</button>
+        <button data-tab="highlights">Highlights</button>
+      </div>
+      <div class="drawer-search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="library-search" type="text" placeholder="Search history" spellcheck="false" />
+      </div>
+      <div id="library-list" class="drawer-list"></div>
+    </aside>
+
+    <!-- AI assistant drawer -->
+    <aside id="assistant-drawer" class="drawer" aria-label="Assistant">
+      <div class="drawer-header">
+        <div class="assistant-heading">
+          <h2>Assistant</h2>
+          <span id="assistant-page"></span>
+        </div>
+        <div class="drawer-actions">
+          <button id="reset-assistant-btn" class="icon-btn" title="New conversation" aria-label="New conversation">
+            <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          </button>
+          <button id="close-assistant-btn" class="icon-btn" title="Close" aria-label="Close assistant">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="assistant-messages" class="drawer-list"></div>
+      <div id="assistant-context"></div>
+      <form id="assistant-form" autocomplete="off">
+        <textarea id="assistant-input" rows="2" placeholder="Ask about this page…"></textarea>
+        <button id="assistant-send" type="submit" class="icon-btn" title="Send" aria-label="Send">
+          <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </form>
+    </aside>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

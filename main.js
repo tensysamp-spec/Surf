@@ -1,0 +1,493 @@
+const { app, BrowserWindow, ipcMain, Menu, clipboard, screen } = require('electron');
+const path = require('path');
+const fs = require('fs');
+
+// Show "Browser" in the app menu without moving the existing profile folder
+const profileDir = app.getPath('userData');
+app.setName('Browser');
+app.setPath('userData', profileDir);
+
+/* ------------------------------------------------------------------ */
+/* Window registry & message routing                                   */
+/* ------------------------------------------------------------------ */
+
+let mainWindow = null;
+const browserWindows = new Set(); // main + private windows (full browser UI)
+const miniWindows = new Set();
+const escapeCaptured = new Map(); // window id -> bool
+let privateCount = 0;
+
+// Which top-level window does a webContents (or the <webview> inside it) belong to?
+function ownerWindow(contents) {
+  return BrowserWindow.fromWebContents(contents.hostWebContents || contents);
+}
+const windowOf = (contents) => BrowserWindow.fromWebContents(contents);
+const isBrowserWindow = (win) => !!win && browserWindows.has(win);
+
+function sendToWindow(win, channel, payload) {
+  if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+}
+function sendToMain(channel, payload) {
+  sendToWindow(mainWindow, channel, payload);
+}
+// Events from a page go to the browser window showing it (links from little windows go to main)
+function sendToOwner(contents, channel, payload) {
+  const win = ownerWindow(contents);
+  sendToWindow(isBrowserWindow(win) ? win : mainWindow, channel, payload);
+}
+
+const M = {
+  ownerWindow,
+  windowOf,
+  isBrowserWindow,
+  sendToMain,
+  sendToOwner,
+  getMainWindow: () => mainWindow,
+  gesturesEnabled: () => features.prefs().gestures !== false,
+};
+
+const sessions = require('./main/sessions')(M);
+const ai = require('./main/ai')(M);
+const tools = require('./main/tools')(M);
+
+/* ------------------------------------------------------------------ */
+/* Misc IPC                                                            */
+/* ------------------------------------------------------------------ */
+
+ipcMain.on('copy-text', (_event, text) => clipboard.writeText(String(text)));
+
+// Easel clips are saved as PNG files instead of bloating localStorage
+ipcMain.handle('save-clip', async (_event, pngBytes) => {
+  const dir = path.join(app.getPath('userData'), 'clips');
+  await fs.promises.mkdir(dir, { recursive: true });
+  const file = path.join(dir, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`);
+  await fs.promises.writeFile(file, Buffer.from(pngBytes));
+  return 'file://' + file;
+});
+
+// Escape normally belongs to the page; a window asks for it while an overlay is open
+ipcMain.on('set-escape-capture', (event, on) => {
+  const win = windowOf(event.sender);
+  if (win) escapeCaptured.set(win.id, !!on);
+});
+
+// HTML fullscreen (e.g. YouTube) takes over the whole window
+const htmlFullscreen = new Set();
+ipcMain.on('set-html-fullscreen', (event, on) => {
+  const win = windowOf(event.sender);
+  if (!win) return;
+  if (on && !win.isFullScreen()) {
+    htmlFullscreen.add(win.id);
+    win.setFullScreen(true);
+  } else if (!on && htmlFullscreen.has(win.id)) {
+    htmlFullscreen.delete(win.id);
+    win.setFullScreen(false);
+  }
+});
+
+// Compact mode hides the macOS window buttons until the sidebar peeks in
+ipcMain.on('set-traffic-lights', (event, visible) => {
+  const win = windowOf(event.sender);
+  if (win && process.platform === 'darwin') win.setWindowButtonVisibility(!!visible);
+});
+
+ipcMain.on('open-little-window', (_event, url) => createMiniWindow(url));
+ipcMain.on('open-private-window', () => createPrivateWindow());
+ipcMain.on('mini-promote', (event, url) => {
+  openInMainWindow(url);
+  const win = windowOf(event.sender);
+  if (win) win.close();
+});
+
+/* ------------------------------------------------------------------ */
+/* Keyboard shortcuts                                                  */
+/* ------------------------------------------------------------------ */
+
+// Shortcuts are captured in the main process so they work even when a
+// <webview> has keyboard focus (the host page never sees those key events).
+function matchShortcut(input, win) {
+  if (input.type !== 'keyDown') return null;
+
+  const isMac = process.platform === 'darwin';
+  const key = input.key.toLowerCase();
+  const mod = isMac ? input.meta : input.control;
+
+  if (input.key === 'F5') return 'reload';
+  if (input.key === 'Escape') return win && escapeCaptured.get(win.id) ? 'escape' : null;
+  if (input.control && key === 'tab') return input.shift ? 'prev-tab' : 'next-tab';
+
+  // Spaces: Ctrl+1..9 on macOS, Alt+1..9 elsewhere
+  const spaceMod = isMac ? input.control && !input.meta : input.alt && !input.control;
+  if (spaceMod && /^Digit[1-9]$/.test(input.code)) return `space-${input.code.slice(5)}`;
+
+  if (!mod) return null;
+
+  if (input.alt) {
+    switch (input.code) {
+      case 'KeyN': return 'little-window';
+      case 'KeyC': return 'compact';
+      case 'KeyI': return 'devtools';
+      default: return null;
+    }
+  }
+
+  if (input.shift) {
+    switch (input.code) {
+      case 'KeyT': return 'reopen-closed';
+      case 'KeyR': return 'reader';
+      case 'KeyC': return 'copy-url';
+      case 'KeyD': return 'split-view';
+      case 'KeyJ': return 'downloads';
+      case 'KeyN': return 'private-window';
+      case 'KeyS': return 'screenshot';
+      case 'KeyG': return 'find-prev';
+      case 'Equal': return 'zoom-in';
+      case 'Digit2': return 'capture';
+      default: return null;
+    }
+  }
+
+  switch (input.code) {
+    case 'KeyF': return 'find';
+    case 'KeyG': return 'find-next';
+    case 'Equal': return 'zoom-in';
+    case 'Minus': return 'zoom-out';
+    case 'Digit0': return 'zoom-reset';
+  }
+
+  switch (key) {
+    case 't': return 'new-tab';
+    case 'w': return 'close-tab';
+    case 'r': return 'reload';
+    case 'l': return 'focus-url';
+    case 's': return 'toggle-sidebar';
+    case 'd': return 'toggle-pin';
+    case 'y': return 'history';
+    case ',': return 'settings';
+    case '[': return 'back';
+    case ']': return 'forward';
+    default:
+      if (/^[1-9]$/.test(key)) return `tab-${key}`;
+      return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Page context menu                                                   */
+/* ------------------------------------------------------------------ */
+
+function buildContextMenu(contents, params) {
+  const win = ownerWindow(contents);
+  const inBrowser = isBrowserWindow(win);
+  const action = (type, value) => () => {
+    if (inBrowser) sendToWindow(win, 'context-action', { type, url: value, webContentsId: contents.id });
+    else if (type === 'search' || type === 'new-tab') openInMainWindow(type === 'new-tab' ? value : null, type === 'search' ? value : null);
+  };
+  const template = [];
+
+  if (params.linkURL) {
+    template.push(
+      { label: 'Open Link in New Tab', click: action('new-tab', params.linkURL) },
+      ...(inBrowser ? [
+        { label: 'Open Link in Peek', click: action('peek', params.linkURL) },
+        { label: 'Open Link in Split View', click: action('split', params.linkURL) },
+        { label: 'Open Link in Little Window', click: () => createMiniWindow(params.linkURL) },
+        { label: 'Summarize Link with AI', click: action('summarize-link', params.linkURL) },
+      ] : []),
+      { label: 'Copy Link Address', click: () => clipboard.writeText(params.linkURL) },
+      { type: 'separator' },
+    );
+  }
+
+  if (params.mediaType === 'image' && params.srcURL) {
+    template.push(
+      { label: 'Open Image in New Tab', click: action('new-tab', params.srcURL) },
+      { label: 'Save Image As…', click: () => contents.downloadURL(params.srcURL) },
+      { label: 'Copy Image', click: () => contents.copyImageAt(params.x, params.y) },
+      { label: 'Copy Image Address', click: () => clipboard.writeText(params.srcURL) },
+      { type: 'separator' },
+    );
+  }
+
+  if (params.isEditable) {
+    template.push(
+      { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
+      { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' },
+      { type: 'separator' },
+    );
+  } else if (params.selectionText && params.selectionText.trim()) {
+    const text = params.selectionText.trim();
+    const short = text.length > 24 ? text.slice(0, 24) + '…' : text;
+    template.push(
+      { role: 'copy' },
+      { label: `Search for “${short}”`, click: action('search', text) },
+      ...(inBrowser ? [
+        { label: 'Highlight', click: action('highlight', text) },
+        { label: `Ask Claude about “${short}”`, click: action('ask-selection', text) },
+      ] : []),
+      { type: 'separator' },
+    );
+  }
+
+  if (inBrowser && !params.linkURL && !params.isEditable && !params.selectionText) {
+    template.push(
+      { label: 'Reader View', click: action('reader') },
+      { label: 'Read Aloud', click: action('read-aloud') },
+      { label: 'Translate Page', click: action('translate') },
+      { label: 'Take Screenshot', click: action('screenshot') },
+      { type: 'separator' },
+    );
+  }
+
+  const nav = contents.navigationHistory;
+  template.push(
+    { label: 'Back', enabled: nav.canGoBack(), click: () => nav.goBack() },
+    { label: 'Forward', enabled: nav.canGoForward(), click: () => nav.goForward() },
+    { label: 'Reload', click: () => contents.reload() },
+    { type: 'separator' },
+    { label: 'Inspect Element', click: () => contents.inspectElement(params.x, params.y) },
+  );
+
+  return Menu.buildFromTemplate(template);
+}
+
+/* ------------------------------------------------------------------ */
+/* Windows                                                             */
+/* ------------------------------------------------------------------ */
+
+// Remember the main window's size and position between launches
+const windowStateFile = () => path.join(app.getPath('userData'), 'window-state.json');
+
+function loadWindowState() {
+  try {
+    const state = JSON.parse(fs.readFileSync(windowStateFile(), 'utf8'));
+    const visible = screen.getAllDisplays().some((d) => {
+      const a = d.workArea;
+      return state.x < a.x + a.width - 100 && state.x + state.width > a.x + 100 && state.y >= a.y - 20 && state.y < a.y + a.height - 100;
+    });
+    return visible ? state : { width: state.width, height: state.height };
+  } catch {
+    return { width: 1280, height: 800 };
+  }
+}
+
+function saveWindowState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    fs.writeFileSync(windowStateFile(), JSON.stringify({ ...mainWindow.getNormalBounds(), maximized: mainWindow.isMaximized() }));
+  } catch { /* not fatal */ }
+}
+
+function createBrowserWindow({ query = {}, bounds = {}, background = '#f3f1f8' } = {}) {
+  const win = new BrowserWindow({
+    width: bounds.width || 1280,
+    height: bounds.height || 800,
+    x: bounds.x,
+    y: bounds.y,
+    minWidth: 720,
+    minHeight: 480,
+    title: 'Browser',
+    backgroundColor: background,
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    trafficLightPosition: { x: 16, y: 16 },
+    show: false,
+    webPreferences: {
+      webviewTag: true,
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+  browserWindows.add(win);
+  win.loadFile(path.join(__dirname, 'index.html'), { query });
+  // The browser UI itself never navigates away (e.g. a dropped link)
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.on('enter-full-screen', () => sendToWindow(win, 'fullscreen-changed', true));
+  win.on('leave-full-screen', () => sendToWindow(win, 'fullscreen-changed', false));
+  win.on('closed', () => {
+    browserWindows.delete(win);
+    escapeCaptured.delete(win.id);
+  });
+  return win;
+}
+
+function createWindow() {
+  const state = loadWindowState();
+  mainWindow = createBrowserWindow({ bounds: state });
+  mainWindow.once('ready-to-show', () => {
+    if (state.maximized) mainWindow.maximize();
+    mainWindow.show();
+  });
+  mainWindow.on('close', saveWindowState);
+  mainWindow.on('closed', () => { mainWindow = null; });
+}
+
+// Private window: in-memory session, nothing saved
+function createPrivateWindow() {
+  privateCount++;
+  const win = createBrowserWindow({ query: { private: '1', partition: `private-${Date.now()}-${privateCount}` }, background: '#1c1828' });
+  win.once('ready-to-show', () => win.show());
+  return win;
+}
+
+// "Little" window: a small, focused window for quick lookups
+function createMiniWindow(url) {
+  const win = new BrowserWindow({
+    width: 560,
+    height: 720,
+    minWidth: 380,
+    minHeight: 360,
+    title: 'Browser',
+    backgroundColor: '#ffffff',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    trafficLightPosition: { x: 14, y: 14 },
+    webPreferences: { webviewTag: true, nodeIntegration: true, contextIsolation: false },
+  });
+  win.loadFile(path.join(__dirname, 'mini.html'), { query: url ? { url } : {} });
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  miniWindows.add(win);
+  win.on('closed', () => miniWindows.delete(win));
+  return win;
+}
+M.createMiniWindow = createMiniWindow;
+
+function openInMainWindow(url, searchText = null) {
+  if (!mainWindow) createWindow();
+  const send = () => {
+    if (searchText) sendToMain('context-action', { type: 'search', url: searchText });
+    else if (url) sendToMain('open-in-new-tab', { url, background: false });
+    mainWindow.show();
+    mainWindow.focus();
+  };
+  if (mainWindow.webContents.isLoading()) mainWindow.webContents.once('did-finish-load', send);
+  else send();
+}
+
+app.on('web-contents-created', (_event, contents) => {
+  // Lock down every guest page: no Node, isolated context, no custom preload.
+  contents.on('will-attach-webview', (_e, webPreferences) => {
+    delete webPreferences.preload;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+  });
+
+  contents.on('before-input-event', (event, input) => {
+    const win = ownerWindow(contents);
+    if (!win) return;
+    // A lone Shift tap while hovering a link opens an AI link preview (never swallowed)
+    if (input.type === 'keyDown' && input.key === 'Shift' && !input.isAutoRepeat && !input.meta && !input.control && !input.alt && isBrowserWindow(win)) {
+      sendToWindow(win, 'shift-key');
+    }
+    const action = matchShortcut(input, win);
+    if (!action) return;
+
+    if (action === 'little-window') {
+      event.preventDefault();
+      createMiniWindow();
+    } else if (action === 'private-window') {
+      event.preventDefault();
+      createPrivateWindow();
+    } else if (isBrowserWindow(win)) {
+      event.preventDefault();
+      sendToWindow(win, 'shortcut', action);
+    } else if (miniWindows.has(win) && ['close-tab', 'escape', 'focus-url', 'reload'].includes(action)) {
+      event.preventDefault();
+      sendToWindow(win, 'shortcut', action);
+    }
+  });
+
+  if (contents.getType() === 'webview') {
+    // target="_blank" / window.open -> new tab inside our browser; Shift+click -> Peek
+    contents.setWindowOpenHandler(({ url, disposition, features: winFeatures }) => {
+      const win = ownerWindow(contents);
+      if (!isBrowserWindow(win)) {
+        openInMainWindow(url);
+      } else if (disposition === 'new-window' && !winFeatures) {
+        sendToWindow(win, 'peek-url', url);
+      } else {
+        sendToWindow(win, 'open-in-new-tab', { url, background: disposition === 'background-tab' });
+      }
+      return { action: 'deny' };
+    });
+
+    contents.on('context-menu', (_e, params) => {
+      tools.showContextMenu(contents, () => {
+        if (!contents.isDestroyed()) buildContextMenu(contents, params).popup({ window: ownerWindow(contents) || undefined });
+      });
+    });
+
+    features.watchSwipes(contents);
+    tools.watchGestures(contents);
+
+    // Per-page blocked counter resets on every full navigation
+    contents.on('did-navigate', () => sessions.resetBlockedCount(contents));
+    const id = contents.id;
+    contents.once('destroyed', () => sessions.forgetContents(id));
+  }
+});
+
+function buildMenu() {
+  const isMac = process.platform === 'darwin';
+  const template = [
+    ...(isMac ? [{ role: 'appMenu' }] : []),
+    {
+      label: 'File',
+      submenu: [
+        // Shortcuts are handled in before-input-event so they also work inside pages
+        { label: 'New Private Window', accelerator: 'CmdOrCtrl+Shift+N', registerAccelerator: false, click: () => createPrivateWindow() },
+        { label: 'New Little Window', accelerator: 'CmdOrCtrl+Alt+N', registerAccelerator: false, click: () => createMiniWindow() },
+        { type: 'separator' },
+        isMac ? { role: 'close' } : { role: 'quit' },
+      ],
+    },
+    { role: 'editMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'toggleDevTools', label: 'Toggle Browser DevTools' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Window',
+      submenu: [{ role: 'minimize' }, { role: 'zoom' }, ...(isMac ? [{ role: 'front' }] : [])],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+/* ------------------------------------------------------------------ */
+/* Extra features (import, default browser, swipe, extensions, …)      */
+/* ------------------------------------------------------------------ */
+
+const features = require('./main-features')(M);
+
+/* ------------------------------------------------------------------ */
+/* App lifecycle                                                       */
+/* ------------------------------------------------------------------ */
+
+app.whenReady().then(() => {
+  sessions.configureAll();
+  buildMenu();
+
+  // Launched by clicking a link in another app: show just the little window (unless set to tabs)
+  const launchedForLink = features.onReady();
+  if (!launchedForLink || features.prefs().linkTarget === 'tab') {
+    createWindow();
+    mainWindow.webContents.once('did-finish-load', () => features.flushPendingUrls());
+  } else {
+    features.flushPendingUrls();
+  }
+
+  app.on('activate', () => {
+    if (!mainWindow) createWindow();
+    else mainWindow.show();
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+module.exports = { ai };

@@ -1,0 +1,63 @@
+{
+  "name": "browser",
+  "version": "1.0.0",
+  "description": "A minimal dark-themed desktop browser",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron .",
+    "package": "electron-builder --mac --dir && codesign --force --deep --sign - dist/mac*/Browser.app"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^45.3.4",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.10.0",
+    "@mozilla/readability": "^0.6.0",
+    "electron-chrome-web-store": "^0.13.0"
+  },
+  "productName": "Browser",
+  "build": {
+    "appId": "app.browser.desktop",
+    "productName": "Browser",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!server/**",
+      "!*.md"
+    ],
+    "protocols": [
+      {
+        "name": "Web page",
+        "schemes": [
+          "http",
+          "https"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "target": "dir",
+      "extendInfo": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "HTML document",
+            "CFBundleTypeRole": "Viewer",
+            "LSItemContentTypes": [
+              "public.html"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
