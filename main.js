@@ -52,6 +52,7 @@ const M = {
   sessionFor,
   windowOf,
   isBrowserWindow,
+  isPrivateWindow: (win) => !!win && privatePartitions.has(win.id),
   sendToMain,
   sendToOwner,
   getMainWindow: () => mainWindow,
@@ -61,6 +62,7 @@ const M = {
 const sessions = require('./main/sessions')(M);
 const ai = require('./main/ai')(M);
 const tools = require('./main/tools')(M);
+require('./main/autofill')(M);
 
 /* ------------------------------------------------------------------ */
 /* Misc IPC                                                            */
@@ -150,6 +152,7 @@ function matchShortcut(input, win) {
       case 'KeyC': return 'copy-url';
       case 'KeyD': return 'split-view';
       case 'KeyJ': return 'downloads';
+      case 'KeyL': return 'reading-list';
       case 'KeyN': return 'private-window';
       case 'KeyS': return 'screenshot';
       case 'KeyG': return 'find-prev';

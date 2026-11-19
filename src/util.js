@@ -17,7 +17,7 @@ const SEARCH_ENGINES = {
 const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
 const PRIVATE = params.get('private') === '1';
 const PRIVATE_PARTITION = PRIVATE ? params.get('partition') : null;
-const PRIVATE_FRESH = new Set(['browser.spaces', 'browser.archive', 'browser.activeSpace', 'browser.history', 'browser.downloads', 'browser.highlights', 'browser.shelf', 'browser.sidebarCollapsed']);
+const PRIVATE_FRESH = new Set(['browser.spaces', 'browser.archive', 'browser.activeSpace', 'browser.history', 'browser.downloads', 'browser.highlights', 'browser.shelf', 'browser.sidebarCollapsed', 'browser.readingList']);
 const memory = new Map();
 
 const store = {
@@ -187,6 +187,8 @@ const ICONS = {
   zap: svg('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>'),
   brain: svg('<path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04z"/>'),
   mask: svg('<path d="M2 12c0-3 2-5 5-5 2 0 3 1 5 1s3-1 5-1c3 0 5 2 5 5 0 4-3 6-5 6-2 0-3-2-5-2s-3 2-5 2c-2 0-5-2-5-6z"/><circle cx="8" cy="11.5" r="1.5"/><circle cx="16" cy="11.5" r="1.5"/>'),
+  card: svg('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/>'),
+  bookmark: svg('<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>'),
   keyboard: svg('<rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6.01" y2="10"/><line x1="10" y1="10" x2="10.01" y2="10"/><line x1="14" y1="10" x2="14.01" y2="10"/><line x1="18" y1="10" x2="18.01" y2="10"/><line x1="7" y1="14" x2="17" y2="14"/>'),
 };
 

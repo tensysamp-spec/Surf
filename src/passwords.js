@@ -219,4 +219,36 @@ async function renderManager(container) {
   }
 }
 
-ctx.passwords = { bindTab, renderManager };
+// Import from / export to CSV. The file dialogs, parsing and writing all happen in the main
+// process: passwords never pass through this window. (Hidden in private windows.)
+function transferControls(listContainer) {
+  const row = U.el('div', 'boost-row');
+  const importBtn = U.el('button', 'chip', 'Import from CSV…');
+  importBtn.addEventListener('click', async () => {
+    importBtn.disabled = true;
+    const result = await ipcRenderer.invoke('pw-import').catch((err) => ({ error: err.message }));
+    importBtn.disabled = false;
+    if (result.cancelled) return;
+    if (result.error) {
+      U.toast(`Import failed: ${result.error}`, { duration: 6000 });
+      return;
+    }
+    const imported = result.added + result.updated;
+    const parts = [`Imported ${imported} password${imported === 1 ? '' : 's'}`];
+    if (result.updated) parts.push(`${result.updated} updated`);
+    if (result.skipped) parts.push(`${result.skipped} skipped`);
+    U.toast(parts.join(', '), { duration: 6000 });
+    renderManager(listContainer);
+  });
+  const exportBtn = U.el('button', 'chip', 'Export…');
+  exportBtn.addEventListener('click', async () => {
+    const result = await ipcRenderer.invoke('pw-export').catch((err) => ({ error: err.message }));
+    if (result.cancelled) return;
+    if (result.error) U.toast(result.error, { duration: 6000 });
+    else U.toast(`Exported ${result.count} password${result.count === 1 ? '' : 's'} — the file isn’t encrypted, delete it when you’re done`, { duration: 7000 });
+  });
+  row.append(importBtn, exportBtn);
+  return row;
+}
+
+ctx.passwords = { bindTab, renderManager, transferControls };

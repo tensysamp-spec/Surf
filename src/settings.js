@@ -57,6 +57,7 @@ const SHORTCUTS = [
   ['Right-drag ← → ↓ ↓→', 'Gestures: back, forward, new tab, close'],
   ['⌘Y', 'History'],
   ['⇧⌘J', 'Downloads'],
+  ['⇧⌘L', 'Add to reading list'],
   ['⌘,', 'Settings'],
   ['⇧-click', 'Open link in Peek'],
 ];
@@ -253,7 +254,14 @@ async function open(section = null) {
   const pwList = U.el('div', 'ext-list');
   body.appendChild(pwList);
   ctx.passwords.renderManager(pwList);
-  body.appendChild(U.el('p', 'settings-hint', 'Saved when you sign in (you’ll be asked), filled when you click a login field. Encrypted with your macOS Keychain; copying a password asks for Touch ID when available.'));
+  if (!U.PRIVATE) body.appendChild(ctx.passwords.transferControls(pwList));
+  body.appendChild(U.el('p', 'settings-hint', 'Saved when you sign in (you’ll be asked), filled when you click a login field. Encrypted with your macOS Keychain; copying a password asks for Touch ID when available. Import takes a CSV exported from Chrome, Safari or Firefox.'));
+
+  heading('Addresses & cards', 'autofill');
+  const afList = U.el('div');
+  body.appendChild(afList);
+  ctx.autofill.renderManager(afList);
+  body.appendChild(U.el('p', 'settings-hint', 'Offered when you click a checkout field; nothing is filled until you pick one. Encrypted with your macOS Keychain. Card security codes are never saved, and cards fill only on https pages.'));
 
   heading('Privacy');
   const reportBtn = U.el('button', 'btn', 'Open report');

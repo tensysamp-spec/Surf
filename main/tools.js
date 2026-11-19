@@ -1,9 +1,10 @@
 // Screenshots, password manager (encrypted with the macOS Keychain via safeStorage),
 // and mouse gestures (right-drag on a page).
 
-const { app, ipcMain, webContents, clipboard, ClipboardItem, nativeImage, safeStorage, systemPreferences } = require('electron');
+const { app, ipcMain, webContents, clipboard, ClipboardItem, nativeImage, safeStorage, systemPreferences, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const csv = require('./csv');
 
 module.exports = function setupTools(M) {
   /* ---------------------------------------------------------------- */
@@ -221,6 +222,121 @@ module.exports = function setupTools(M) {
       }
     }
     return { password: login.password };
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* Password import / export (CSV from Chrome, Safari or Firefox)    */
+  /* ---------------------------------------------------------------- */
+
+  // Only the main window's profile has a vault; private windows can't import or export
+  const vaultWindow = (event) => {
+    const win = M.windowOf(event.sender);
+    return M.isBrowserWindow(win) && !M.isPrivateWindow(win) ? win : null;
+  };
+
+  // http(s) logins are kept by origin (scheme + host + port), like the ones saved in Surf
+  const loginOrigin = (url) => {
+    try {
+      const u = new URL(String(url).trim());
+      return /^https?:$/.test(u.protocol) && u.hostname ? u.origin : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // All three browsers name these columns url/username/password (any case); the extra
+  // columns (name, notes, OTPAuth, httpRealm, guid, times…) aren't needed
+  function importRecords(records) {
+    const v = loadVault();
+    let added = 0, updated = 0, skipped = 0;
+    for (const r of records) {
+      const origin = loginOrigin(r.url || r.origin || r.website || '');
+      const username = r.username || r.login || '';
+      const password = r.password || '';
+      if (!origin || !password) {
+        skipped++;
+        continue;
+      }
+      const existing = v.logins.find((l) => l.origin === origin && l.username === username);
+      if (existing) {
+        if (existing.password !== password) {
+          existing.password = password;
+          updated++;
+        }
+      } else {
+        v.logins.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, origin, username, password, created: Date.now(), used: 0 });
+        added++;
+      }
+    }
+    return { added, updated, skipped };
+  }
+
+  ipcMain.handle('pw-import', async (event) => {
+    const win = vaultWindow(event);
+    if (!win) return { error: 'Not available in private windows' };
+    if (!safeStorage.isEncryptionAvailable()) return { error: 'Secure storage isn’t available' };
+    const pick = await dialog.showOpenDialog(win, {
+      title: 'Import passwords',
+      message: 'Choose a passwords CSV exported from Chrome, Safari or Firefox',
+      buttonLabel: 'Import',
+      properties: ['openFile'],
+      filters: [{ name: 'CSV', extensions: ['csv'] }],
+    });
+    if (pick.canceled || !pick.filePaths[0]) return { cancelled: true };
+    let records;
+    try {
+      const stat = await fs.promises.stat(pick.filePaths[0]);
+      if (stat.size > 20 * 1024 * 1024) return { error: 'That file is too large' };
+      records = csv.parseRecords(await fs.promises.readFile(pick.filePaths[0], 'utf8'));
+    } catch (err) {
+      return { error: err.message };
+    }
+    if (!records.length || !('password' in records[0]) || !('url' in records[0] || 'origin' in records[0] || 'website' in records[0])) {
+      return { error: 'That doesn’t look like a passwords CSV (needs url, username and password columns)' };
+    }
+    const result = importRecords(records);
+    if ((result.added || result.updated) && !saveVault()) return { error: 'Couldn’t save: secure storage isn’t available' };
+    return result;
+  });
+
+  // Exports Chrome's format (name,url,username,password,note), which Safari and Firefox import too
+  ipcMain.handle('pw-export', async (event) => {
+    const win = vaultWindow(event);
+    if (!win) return { error: 'Not available in private windows' };
+    const logins = loadVault().logins;
+    if (!logins.length) return { error: 'No saved passwords to export' };
+    const confirm = await dialog.showMessageBox(win, {
+      type: 'warning',
+      message: `Export ${logins.length} password${logins.length === 1 ? '' : 's'}?`,
+      detail: 'The file will NOT be encrypted. Anyone who can open it can read your passwords. Delete it once you’ve imported it elsewhere.',
+      buttons: ['Export…', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+    });
+    if (confirm.response !== 0) return { cancelled: true };
+    if (process.platform === 'darwin' && systemPreferences.canPromptTouchID()) {
+      try {
+        await systemPreferences.promptTouchID('export your saved passwords');
+      } catch {
+        return { cancelled: true };
+      }
+    }
+    const save = await dialog.showSaveDialog(win, {
+      title: 'Export passwords',
+      defaultPath: path.join(app.getPath('documents'), 'Surf Passwords.csv'),
+      filters: [{ name: 'CSV', extensions: ['csv'] }],
+    });
+    if (save.canceled || !save.filePath) return { cancelled: true };
+    const rows = [['name', 'url', 'username', 'password', 'note']];
+    for (const l of [...logins].sort((a, b) => a.origin.localeCompare(b.origin))) {
+      rows.push([new URL(l.origin).host, l.origin, l.username, l.password, '']);
+    }
+    try {
+      await fs.promises.writeFile(save.filePath, csv.stringify(rows), { mode: 0o600 });
+    } catch (err) {
+      return { error: err.message };
+    }
+    return { count: logins.length, path: save.filePath };
   });
 
   /* ---------------------------------------------------------------- */

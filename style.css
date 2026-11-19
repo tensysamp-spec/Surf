@@ -2956,3 +2956,32 @@ body.dark .has-site.pinned-tile.active, body.dark .has-site.favorite.active { ba
 .ctx-menu { max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; }
 .ctx-menu::-webkit-scrollbar { width: 0; }
 .ctx-menu.up { transform-origin: bottom left; }
+
+/* ------------------------------------------------------------------ */
+/* Reading list (Library tab) and address & card autofill              */
+/* ------------------------------------------------------------------ */
+
+#library-tabs button { min-width: 0; padding: 0 2px; white-space: nowrap; }
+#library-tabs button.rl-unread::after {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 2px;
+}
+.rl-filters { display: flex; gap: 6px; padding: 2px 6px 6px; }
+.rl-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-right: -4px; }
+.rl-item.read .rl-dot { background: transparent; }
+.rl-item.read .h-title { color: var(--text-dim); }
+
+.af-dialog { width: min(460px, calc(100vw - 32px)); }
+.af-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.af-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.af-field.wide { grid-column: 1 / -1; }
+.af-field > span { color: var(--text-dim); font-size: 11.5px; font-weight: 500; }
+.af-field textarea.dialog-input { height: auto; padding: 7px 11px; resize: vertical; line-height: 1.4; }
+.dialog p.af-hint { color: var(--text-faint); font-size: 11.5px; }
+.af-choice { max-width: 220px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

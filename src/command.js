@@ -44,6 +44,8 @@ function actions() {
     { title: 'New live folder', keywords: 'live folder rss feed github pull requests', icon: 'rss', run: () => ctx.liveFolders.create() },
     { title: 'Privacy report', keywords: 'privacy report trackers blocked shields', icon: 'shield', run: () => ctx.privacy.openReport() },
     { title: 'Page developer tools', keywords: 'devtools inspect console developer', icon: 'code', hint: '⌥⌘I', when: isWeb, run: () => ctx.page.openDevTools() },
+    { title: 'Add to reading list', keywords: 'reading list read later save bookmark', icon: 'bookmark', hint: '⇧⌘L', when: isWeb, run: () => ctx.readingList.addActive() },
+    { title: 'Show reading list', keywords: 'reading list read later saved unread', icon: 'bookmark', run: () => ctx.library.open('reading') },
     { title: 'Show highlights', keywords: 'highlights saved quotes', icon: 'highlighter', run: () => ctx.library.open('highlights') },
     { title: 'New skill', keywords: 'skill prompt ai saved', icon: 'zap', run: () => ctx.ai.newSkill() },
     ...ctx.ai.skills().map((sk) => ({ title: `Skill: ${sk.name}`, keywords: `skill ai ${sk.name} ${sk.prompt}`, icon: 'zap', run: () => ctx.ai.runSkill(sk) })),
