@@ -1,4 +1,4 @@
-// Library drawer: History, Archive, Downloads, Notes & Easels.
+// Library drawer: Bookmarks, History, Archive, Downloads, Notes & Easels, Highlights.
 
 const { ipcRenderer } = require('electron');
 const ctx = require('./ctx');
@@ -306,7 +306,7 @@ function renderNotes(list, query) {
   }
 }
 
-const CLEAR_LABELS = { history: 'Clear', archive: 'Clear', downloads: 'Clear list', notes: null, highlights: null };
+const CLEAR_LABELS = { history: 'Clear', archive: 'Clear', downloads: 'Clear list', notes: null, highlights: null, bookmarks: null };
 
 function render() {
   const list = U.$('library-list');
@@ -316,7 +316,8 @@ function render() {
   const clearBtn = U.$('library-clear-btn');
   clearBtn.hidden = !CLEAR_LABELS[current];
   clearBtn.lastChild.textContent = ` ${CLEAR_LABELS[current] || ''}`;
-  if (current === 'history') renderHistory(list, query);
+  if (current === 'bookmarks') ctx.bookmarks.render(list, query);
+  else if (current === 'history') renderHistory(list, query);
   else if (current === 'archive') renderArchive(list, query);
   else if (current === 'downloads') renderDownloads(list, query);
   else if (current === 'highlights') renderHighlights(list, query);
@@ -378,7 +379,12 @@ function setup() {
   updateIndicator();
 }
 
+// Re-render the open tab after its data changed elsewhere (e.g. bookmarks)
+function refresh() {
+  if (isOpen()) render();
+}
+
 ctx.library = {
-  setup, open, close, toggle, isOpen, addHistory, updateHistory, clearHistory, importHistory,
+  setup, open, close, toggle, isOpen, refresh, addHistory, updateHistory, clearHistory, importHistory,
   history: () => history,
 };

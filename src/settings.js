@@ -30,35 +30,17 @@ function set(key, value) {
   U.store.set(KEY, values);
 }
 
+// Shortcuts that aren't in the customizable table (main/shortcuts.js), shown below it
 const SHORTCUTS = [
-  ['⌘T', 'New tab / command bar'],
-  ['⌘L', 'Edit address'],
-  ['⌘W', 'Close tab'],
-  ['⇧⌘T', 'Reopen closed tab'],
-  ['⌘D', 'Pin / unpin tab'],
-  ['⇧⌘D', 'Split view'],
-  ['⌘S', 'Toggle sidebar'],
-  ['⇧⌘C', 'Copy URL'],
   ['⌘1–9', 'Go to tab'],
   ['⌃1–9', 'Go to space'],
   ['⌃Tab', 'Switch tabs (hold ⌃)'],
-  ['⌥⌘N', 'Little window'],
-  ['⇧⌘2', 'Capture to easel'],
-  ['⌘F', 'Find in page'],
-  ['⌘+ / ⌘−', 'Zoom in / out (⌘0 resets)'],
-  ['⇧⌘R', 'Reader view'],
+  ['F5', 'Reload'],
   ['⇧ over a link', 'AI link preview'],
+  ['⇧-click', 'Open link in Peek'],
   ['Two-finger swipe', 'Back / forward (on the sidebar: switch space)'],
-  ['⇧⌘N', 'Private window'],
-  ['⌥⌘C', 'Compact mode'],
-  ['⇧⌘S', 'Screenshot'],
-  ['⌥⌘I', 'Page DevTools'],
   ['Tab after “yt”, “gh”…', 'Search a site'],
   ['Right-drag ← → ↓ ↓→', 'Gestures: back, forward, new tab, close'],
-  ['⌘Y', 'History'],
-  ['⇧⌘J', 'Downloads'],
-  ['⌘,', 'Settings'],
-  ['⇧-click', 'Open link in Peek'],
 ];
 
 let panel = null;
@@ -66,6 +48,7 @@ let release = null;
 
 function close() {
   if (!panel) return;
+  ctx.shortcuts.close();
   U.removeAnimated(panel, 160);
   panel = null;
   if (release) release();
@@ -288,13 +271,22 @@ async function open(section = null) {
         return;
       }
       const added = ctx.library.importHistory(result.history);
-      const marks = ctx.tabs.importBookmarks(source.name, result.bookmarks);
-      U.toast(`Imported ${marks} bookmark${marks === 1 ? '' : 's'} and ${added} history page${added === 1 ? '' : 's'} from ${source.name}`, { duration: 6000 });
+      const marks = ctx.bookmarks.importItems(source.name, result.bookmarks);
+      U.toast(`Imported ${marks} bookmark${marks === 1 ? '' : 's'} and ${added} history page${added === 1 ? '' : 's'} from ${source.name}`, {
+        // The old way: the same bookmarks as a pinned folder of tabs in this space
+        ...(marks ? { actionLabel: 'Also pin as folder', action: () => ctx.tabs.importBookmarks(source.name, result.bookmarks) } : {}),
+        duration: 8000,
+      });
     });
     importRow.appendChild(btn);
   }
   body.appendChild(importRow);
-  body.appendChild(U.el('p', 'settings-hint', 'Bookmarks land in a pinned folder in this space; history merges into yours. Close the other browser first for the freshest history.'));
+  body.appendChild(U.el('p', 'settings-hint', 'Bookmarks go to Library → Bookmarks (in a folder named after the browser); history merges into yours. Close the other browser first for the freshest history. A bookmarks.html file can be imported from the Bookmarks tab.'));
+
+  heading('Profiles', 'profiles');
+  const profileBox = U.el('div');
+  body.appendChild(profileBox);
+  await ctx.profiles.renderSettings(profileBox);
 
   heading('Extensions', 'extensions');
   const extList = U.el('div', 'ext-list');
@@ -429,7 +421,9 @@ async function open(section = null) {
   body.append(serverRow, tokenRow);
   body.appendChild(U.el('p', 'settings-hint', 'Runs the AI features on an open model you host — for example Ollama on a free Oracle Cloud server (see server/README.md). When set, nothing is sent to Anthropic. Small models are weaker than Claude, long pages get cut short, and “Ask Claude (web search)” answers without searching.'));
 
-  body.appendChild(U.el('h4', null, 'Keyboard shortcuts'));
+  heading('Keyboard shortcuts', 'shortcuts');
+  ctx.shortcuts.renderSettings(body);
+  body.appendChild(U.el('h4', null, 'Other shortcuts'));
   const grid = U.el('div', 'shortcut-grid');
   for (const [keys, label] of SHORTCUTS) {
     const keyText = process.platform === 'darwin' ? keys : keys.replace(/⌘/g, 'Ctrl+').replace(/⇧/g, 'Shift+').replace(/⌥/g, 'Alt+').replace(/⌃/g, 'Alt+');

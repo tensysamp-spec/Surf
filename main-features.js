@@ -29,11 +29,12 @@ module.exports = function setupFeatures(M) {
   }
   applyAppearance();
 
-  ipcMain.on('set-pref', (_event, key, value) => {
+  function setPref(key, value) {
     prefs[key] = value;
     fs.promises.writeFile(prefsFile(), JSON.stringify(prefs)).catch(() => {});
     if (key === 'appearance') applyAppearance();
-  });
+  }
+  ipcMain.on('set-pref', (_event, key, value) => setPref(key, value));
 
   /* ---------------------------------------------------------------- */
   /* Default browser + links opened from other apps                   */
@@ -75,20 +76,16 @@ module.exports = function setupFeatures(M) {
     openExternalLink(url);
   });
 
-  // Windows / Linux deliver links as command-line arguments to a second instance
+  // Windows / Linux deliver links as command-line arguments to a second instance.
+  // The lock is per profile folder, so another profile runs as its own instance, while
+  // opening a profile that's already running just brings that one to the front.
   if (!app.requestSingleInstanceLock()) {
     app.quit();
   }
   app.on('second-instance', (_event, argv) => {
     const url = argv.find((a) => /^https?:\/\//i.test(a));
     if (url) openExternalLink(url);
-    else {
-      const win = getMainWindow();
-      if (win) {
-        if (win.isMinimized()) win.restore();
-        win.focus();
-      }
-    }
+    else if (app.isReady()) M.focusMain();
   });
 
   ipcMain.handle('default-browser-status', () => ({
@@ -157,10 +154,17 @@ module.exports = function setupFeatures(M) {
     }
   }
 
-  function flattenChromiumBookmarks(node, out) {
+  // Chromium timestamps: microseconds since 1601-01-01
+  const chromiumTime = (t) => Math.round(Number(t) / 1000 - 11644473600000);
+
+  // Each bookmark keeps its folder path (e.g. ["Bookmarks bar", "Recipes"]) for Surf's bookmarks
+  function flattenChromiumBookmarks(node, out, folder = []) {
     if (!node) return;
-    if (node.type === 'url' && /^https?:/i.test(node.url)) out.push({ title: node.name || node.url, url: node.url });
-    for (const child of node.children || []) flattenChromiumBookmarks(child, out);
+    if (node.type === 'url' && /^https?:/i.test(node.url)) {
+      out.push({ title: node.name || node.url, url: node.url, folder, added: Number(node.date_added) ? chromiumTime(node.date_added) : null });
+    }
+    const inner = node.type === 'folder' && node.name ? [...folder, node.name] : folder;
+    for (const child of node.children || []) flattenChromiumBookmarks(child, out, inner);
   }
 
   async function importChromium(browser) {
@@ -172,8 +176,7 @@ module.exports = function setupFeatures(M) {
     } catch { /* no bookmarks file */ }
     const rows = await sqliteJson(path.join(profile, 'History'),
       "SELECT url, title, last_visit_time AS t FROM urls WHERE url LIKE 'http%' AND hidden = 0 ORDER BY last_visit_time DESC LIMIT 3000");
-    // Chromium timestamps: microseconds since 1601-01-01
-    const history = rows.map((r) => ({ url: r.url, title: r.title || r.url, time: Math.round(r.t / 1000 - 11644473600000) }));
+    const history = rows.map((r) => ({ url: r.url, title: r.title || r.url, time: chromiumTime(r.t) }));
     return { bookmarks, history };
   }
 
@@ -181,17 +184,19 @@ module.exports = function setupFeatures(M) {
     const bookmarks = [];
     try {
       const { stdout } = await run('/usr/bin/plutil', ['-convert', 'json', '-o', '-', path.join(SAFARI_DIR, 'Bookmarks.plist')], { maxBuffer: 32 * 1024 * 1024 });
-      const walk = (node) => {
+      const FOLDER_NAMES = { BookmarksBar: 'Favorites', BookmarksMenu: 'Bookmarks Menu' };
+      const walk = (node, folder) => {
         if (!node) return;
         if (node.URLString && /^https?:/i.test(node.URLString)) {
-          bookmarks.push({ title: (node.URIDictionary && node.URIDictionary.title) || node.URLString, url: node.URLString });
+          bookmarks.push({ title: (node.URIDictionary && node.URIDictionary.title) || node.URLString, url: node.URLString, folder });
         }
+        const inner = node.WebBookmarkType === 'WebBookmarkTypeList' && node.Title ? [...folder, FOLDER_NAMES[node.Title] || node.Title] : folder;
         for (const child of node.Children || []) {
           if (child.Title === 'com.apple.ReadingList') continue;
-          walk(child);
+          walk(child, inner);
         }
       };
-      walk(JSON.parse(stdout));
+      walk(JSON.parse(stdout), []);
     } catch (err) {
       if (/not permitted|EPERM|EACCES/i.test(String(err))) throw new Error('fda');
     }
@@ -214,6 +219,34 @@ module.exports = function setupFeatures(M) {
       }
       return { error: String(err.message || err) };
     }
+  });
+
+  // bookmarks.html (the Netscape format every browser reads and writes): the window builds and
+  // parses the HTML, the main process only shows the file dialogs and touches the disk
+  ipcMain.handle('bookmarks-export', async (event, html) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Export bookmarks',
+      defaultPath: path.join(app.getPath('downloads'), 'bookmarks.html'),
+      filters: [{ name: 'Bookmarks (HTML)', extensions: ['html', 'htm'] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    await fs.promises.writeFile(result.filePath, String(html), 'utf8');
+    return result.filePath;
+  });
+
+  ipcMain.handle('bookmarks-import-file', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Import bookmarks',
+      properties: ['openFile'],
+      filters: [{ name: 'Bookmarks (HTML)', extensions: ['html', 'htm'] }],
+    });
+    const file = !result.canceled && result.filePaths[0];
+    if (!file) return null;
+    const { size } = await fs.promises.stat(file);
+    if (size > 50 * 1024 * 1024) return { error: 'That file is too large to be a bookmarks file.' };
+    return { name: path.basename(file), html: await fs.promises.readFile(file, 'utf8') };
   });
 
   ipcMain.on('open-fda-settings', () => {
@@ -469,5 +502,6 @@ module.exports = function setupFeatures(M) {
     },
     watchSwipes,
     prefs: () => prefs,
+    setPref,
   };
 };

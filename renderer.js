@@ -10,6 +10,9 @@ require('./src/sidebar');
 require('./src/nav');
 require('./src/command');
 require('./src/library');
+require('./src/bookmarks');
+require('./src/shortcuts');
+require('./src/profiles');
 require('./src/shelf');
 require('./src/switcher');
 require('./src/peek');
@@ -61,6 +64,9 @@ ipcRenderer.on('context-action', (_e, { type, url, webContentsId }) => {
   }
 });
 
+// Menu bar items that open a Settings section (e.g. Open Profile → Manage Profiles…)
+ipcRenderer.on('open-settings', (_e, section) => ctx.settings.open(section));
+
 ipcRenderer.on('fullscreen-changed', (_e, isFullscreen) => {
   document.body.classList.toggle('fullscreen', isFullscreen);
 });
@@ -84,6 +90,8 @@ const SHORTCUTS = {
   'copy-url': () => ctx.nav.copyUrl(),
   capture: () => ctx.internal.startCapture(),
   history: () => ctx.library.toggle('history'),
+  bookmarks: () => ctx.library.toggle('bookmarks'),
+  'bookmark-page': () => ctx.bookmarks.addCurrent(),
   downloads: () => ctx.library.toggle('downloads'),
   settings: () => ctx.settings.open(),
   back: () => ctx.nav.back(),
@@ -128,6 +136,8 @@ ctx.suggest.setup();
 ctx.extensions.setup();
 ctx.panels.setup();
 ctx.liveFolders.setup();
+ctx.bookmarks.setup();
+ctx.profiles.setup();
 
 // Air Traffic Control: a link from another app routed to a Space
 ipcRenderer.on('open-in-space', (_e, { url, spaceId }) => {
@@ -164,3 +174,4 @@ ctx.tabs.boot();
 ctx.intro.maybeShowFirstRun();
 
 U.$('settings-btn').addEventListener('click', () => ctx.settings.open());
+U.$('profile-chip').addEventListener('click', () => ctx.settings.open('profiles'));
