@@ -902,6 +902,25 @@ function setSpaceColor(id, color, { preview = false } = {}) {
   save();
 }
 
+// Reorder spaces (drag in the spaces bar, or Move left/right); ⌃1–9 follow this order
+function moveSpace(id, toIndex) {
+  const from = spaces.findIndex((s) => s.id === id);
+  if (from === -1) return;
+  const [space] = spaces.splice(from, 1);
+  spaces.splice(Math.max(0, Math.min(toIndex, spaces.length)), 0, space);
+  ctx.sidebar.render();
+  save();
+}
+
+// An emoji shown instead of the space's first letter (null = use the letter)
+function setSpaceIcon(id, icon) {
+  const space = getSpace(id);
+  if (!space) return;
+  space.icon = icon || null;
+  ctx.sidebar.render();
+  save();
+}
+
 function setSpaceSearchEngine(id, key) {
   const space = getSpace(id);
   if (!space) return;
@@ -1208,6 +1227,8 @@ ctx.tabs = {
   renameSpace,
   deleteSpace,
   setSpaceTheme,
+  moveSpace,
+  setSpaceIcon,
   moveToSpace,
   setSpaceSearchEngine,
   hibernate,

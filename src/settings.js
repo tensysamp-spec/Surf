@@ -18,6 +18,7 @@ const DEFAULTS = {
   archiveAfterHours: 12,
   autoPip: true,
   shields: true,
+  sidebarPosition: 'left',
 };
 
 let values = { ...DEFAULTS, ...U.store.get(KEY, {}) };
@@ -40,6 +41,7 @@ const SHORTCUTS = [
   ['⌘S', 'Toggle sidebar'],
   ['⇧⌘C', 'Copy URL'],
   ['⌘1–9', 'Go to tab'],
+  ['⇧⌘A', 'Search all tabs'],
   ['⌃1–9', 'Go to space'],
   ['⌃Tab', 'Switch tabs (hold ⌃)'],
   ['⌥⌘N', 'Little window'],
@@ -134,6 +136,14 @@ async function open(section = null) {
       ipcRenderer.send('set-pref', 'appearance', v);
     },
   ), 'Space colors adapt automatically.'));
+  body.appendChild(field('Sidebar position', select(
+    [['left', 'Left'], ['right', 'Right']],
+    get('sidebarPosition'),
+    (v) => {
+      set('sidebarPosition', v);
+      ctx.sidebar.setPosition(v);
+    },
+  ), 'Which side of the window the sidebar sits on.'));
 
   const space = ctx.tabs.activeSpace();
   const colorRow = U.el('div', 'settings-picker');

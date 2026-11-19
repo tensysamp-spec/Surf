@@ -54,6 +54,7 @@ function actions() {
     { title: 'New note', keywords: 'note write notes text', icon: 'note', run: () => ctx.internal.newNote() },
     { title: 'New easel', keywords: 'easel board canvas collage', icon: 'easel', run: () => ctx.internal.newEasel() },
     { title: 'New little window', keywords: 'little mini window popup quick', icon: 'window', hint: '⌥⌘N', run: () => ipcRenderer.send('open-little-window') },
+    { title: 'Search tabs', keywords: 'search find tabs all spaces archived history switch', icon: 'search', hint: '⇧⌘A', run: () => ctx.tabSearch.open() },
     { title: 'New space', keywords: 'space workspace profile', icon: 'layers', run: () => T().addSpace() },
     ...T().spaces.filter((s) => s.id !== T().activeSpaceId).map((s) => ({ title: `Switch to ${s.name}`, keywords: `space switch ${s.name}`, icon: 'layers', run: () => T().switchSpace(s.id) })),
     { title: 'New folder', keywords: 'folder group', icon: 'folder', run: () => T().createFolder('today') },

@@ -2956,3 +2956,189 @@ body.dark .has-site.pinned-tile.active, body.dark .has-site.favorite.active { ba
 .ctx-menu { max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; }
 .ctx-menu::-webkit-scrollbar { width: 0; }
 .ctx-menu.up { transform-origin: bottom left; }
+
+/* ------------------------------------------------------------------ */
+/* Tab search (⇧⌘A): looks like the command bar                        */
+/* ------------------------------------------------------------------ */
+
+#tabsearch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 14vh;
+  background: rgba(30, 26, 50, 0.18);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms var(--ease);
+}
+body.tabsearch-open #tabsearch-overlay { opacity: 1; pointer-events: auto; }
+#tabsearch-bar {
+  width: min(680px, calc(100vw - 48px));
+  background: var(--popover);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 0.5px var(--line), 0 30px 80px rgba(20, 16, 40, 0.28);
+  overflow: hidden;
+  transform: translateY(-8px) scale(0.98);
+  transition: transform 200ms var(--ease);
+}
+body.tabsearch-open #tabsearch-bar { transform: none; }
+#tabsearch-input {
+  flex: 1;
+  height: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  user-select: text;
+}
+#tabsearch-input::placeholder { color: var(--text-faint); }
+.ts-shortcut { font-size: 11.5px; color: var(--text-faint); padding: 2px 6px; border-radius: 5px; background: var(--glass-1); }
+#tabsearch-results {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#tabsearch-results:not(:empty) { border-top: 1px solid var(--line); padding: 0 6px 6px; }
+#tabsearch-results::-webkit-scrollbar { width: 0; }
+.ts-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 12px 4px;
+  background: var(--popover);
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ts-item { height: 38px; }
+.ts-item .c-title { max-width: 55%; }
+/* Fixed-width hint keeps the space chips lined up */
+.ts-item .c-hint { width: 62px; flex-shrink: 0; text-align: right; }
+.ts-empty { padding: 18px 12px; color: var(--text-faint); text-align: center; }
+.ts-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  max-width: 140px;
+  padding: 2px 7px 2px 3px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--chip) 16%, transparent);
+  color: var(--text-dim);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.ts-chip > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.ts-chip-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  background: var(--chip);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+body.dark .ts-chip-glyph { color: #17161f; }
+.ts-fav { --chip: var(--warning); padding-left: 6px; }
+.ts-fav svg { width: 11px; height: 11px; color: var(--warning); }
+
+/* ------------------------------------------------------------------ */
+/* Spaces: drag to reorder, emoji icons                                */
+/* ------------------------------------------------------------------ */
+
+#spaces-bar { position: relative; }
+.space-dot.drag-source { opacity: 0.35; }
+.space-drop-mark {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+  pointer-events: none;
+}
+
+/* An emoji replaces the letter: no colored fill behind it, sized to read at a glance */
+.glyph-emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-weight: 400 !important;
+  line-height: 1;
+}
+.space-dot span.glyph-emoji { width: 18px; height: 18px; font-size: 14px; background: transparent; }
+.space-dot.active span.glyph-emoji { background: transparent; }
+.space-dot:not(.active) span.glyph-emoji { filter: saturate(0.7); opacity: 0.8; }
+.space-dot:hover span.glyph-emoji { filter: none; opacity: 1; }
+/* The active space keeps an accent underline so it still reads as selected */
+.space-dot.active:has(.glyph-emoji) { box-shadow: var(--row-shadow), inset 0 -2px 0 var(--dot); }
+.space-badge.glyph-emoji { font-size: 13px; background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.ts-chip-glyph.glyph-emoji { font-size: 11px; background: transparent; }
+
+.ctx-menu.has-emoji { width: 256px; max-width: 256px; }
+.emoji-picker { display: flex; flex-direction: column; gap: 8px; padding: 2px 4px 6px; }
+.emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
+.emoji-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  border-radius: 6px;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 17px;
+  line-height: 1;
+  transition: background var(--t-fast), transform var(--t-fast);
+}
+.emoji-btn:hover { background: var(--glass-2); transform: scale(1.12); }
+.emoji-btn.active { background: var(--accent-soft); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.emoji-input {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--glass-1);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+  user-select: text;
+}
+.emoji-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ------------------------------------------------------------------ */
+/* Sidebar on the right (Settings → Appearance → Sidebar position)     */
+/* ------------------------------------------------------------------ */
+
+body.sidebar-right #sidebar { order: 2; padding: 0 10px 8px 8px; }
+body.sidebar-right #content { padding: var(--gap) 0 var(--gap) var(--gap); }
+body.sidebar-right #web-panel { padding: var(--gap) 0 var(--gap) var(--gap); }
+/* The window buttons stay top-left, now over the page: the sidebar needs no room for
+   them, the page gets a title strip instead */
+body.sidebar-right.platform-darwin:not(.fullscreen) .sidebar-top { padding-left: 0; }
+body.sidebar-right.platform-darwin:not(.fullscreen) #content { padding-top: 34px; }
+body.sidebar-right.platform-darwin:not(.fullscreen) #drag-strip { height: 34px; }
+
+body.sidebar-right #sidebar-resizer { right: auto; left: -6px; }
+
+/* Collapsed: slides away to the right, peeks back in from the right edge */
+body.sidebar-right #sidebar-edge { left: auto; right: 0; }
+body.sidebar-right.sidebar-collapsed #sidebar {
+  left: auto;
+  right: var(--gap);
+  transform: translateX(calc(100% + 2 * var(--gap)));
+}
+body.sidebar-right.sidebar-collapsed.sidebar-peek #sidebar { transform: none; }
+body.sidebar-right.sidebar-collapsed #content { padding-right: var(--gap); }

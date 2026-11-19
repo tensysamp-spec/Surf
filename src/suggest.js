@@ -171,9 +171,10 @@ function paint() {
   });
 
   const rect = U.$('omnibox').getBoundingClientRect();
-  el.style.left = `${rect.left}px`;
+  const width = Math.max(rect.width, 420);
+  el.style.left = `${ctx.sidebar.popoverLeft(rect, width)}px`;
   el.style.top = `${rect.bottom + 6}px`;
-  el.style.width = `${Math.max(rect.width, 420)}px`;
+  el.style.width = `${width}px`;
   el.hidden = false;
 }
 

@@ -9,6 +9,7 @@ require('./src/sitecolor');
 require('./src/sidebar');
 require('./src/nav');
 require('./src/command');
+require('./src/tabsearch');
 require('./src/library');
 require('./src/shelf');
 require('./src/switcher');
@@ -67,9 +68,11 @@ ipcRenderer.on('fullscreen-changed', (_e, isFullscreen) => {
 
 const SHORTCUTS = {
   'new-tab': () => ctx.command.toggle(),
+  'tab-search': () => ctx.tabSearch.toggle(),
   'close-tab': () => {
     if (ctx.peek.isOpen()) ctx.peek.close();
     else if (ctx.command.isOpen()) ctx.command.close();
+    else if (ctx.tabSearch.isOpen()) ctx.tabSearch.close();
     else ctx.tabs.closeActive();
   },
   'reopen-closed': () => ctx.tabs.reopenClosed(),
@@ -117,6 +120,7 @@ document.body.classList.add(`platform-${process.platform}`);
 ctx.sidebar.setup();
 ctx.nav.setup();
 ctx.command.setup();
+ctx.tabSearch.setup();
 ctx.library.setup();
 ctx.shelf.setup();
 ctx.switcher.setup();

@@ -10,6 +10,9 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 - Sidebar with favorites, pinned tabs, and today's tabs, which are archived automatically after a while
 - Pinned tabs shown as square tiles that glow in each site's color; when a pinned tab has moved to another page, a ↩ badge takes it back to its home page
 - Spaces, each with its own color, search engine, and optionally separate logins
+- Spaces can be reordered by dragging them in the spaces bar (or Move space left/right in the space menu) and given an emoji icon (Choose icon… in the space menu)
+- Tab search (⇧⌘A): find any tab in every space, plus archived tabs and history
+- Sidebar on the left or the right (Settings → Appearance)
 - Custom space colors from a color picker, in the space menu and in Settings
 - Two-finger swipe on the sidebar to switch spaces
 - Folders, split view (up to 4 pages side by side), and drag and drop for everything, with animations when folders open and tabs are added or closed
@@ -73,6 +76,7 @@ This builds `dist/mac-arm64/Surf.app`, which can be copied to `/Applications`. T
 | ⌘S | Toggle sidebar |
 | ⇧⌘C | Copy URL |
 | ⌘1–9 | Go to tab |
+| ⇧⌘A | Search all tabs (every space, archive, history) |
 | ⌃1–9 | Go to space |
 | ⌃Tab | Switch tabs (hold ⌃) |
 | ⌥⌘N | Little window |

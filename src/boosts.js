@@ -275,7 +275,7 @@ function openPanel() {
   const anchor = U.$('omnibox').getBoundingClientRect();
   const sidebarHidden = document.body.classList.contains('sidebar-collapsed') && !document.body.classList.contains('sidebar-peek');
   panel.style.top = `${sidebarHidden ? 48 : anchor.bottom + 8}px`;
-  panel.style.left = `${sidebarHidden ? 16 : anchor.left}px`;
+  panel.style.left = `${sidebarHidden ? (ctx.sidebar.isRight() ? window.innerWidth - panel.offsetWidth - 16 : 16) : ctx.sidebar.popoverLeft(anchor, panel.offsetWidth)}px`;
   release = U.pushEscape(closePanel);
   document.addEventListener('mousedown', outside, true);
 }
