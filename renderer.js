@@ -27,6 +27,8 @@ require('./src/speech');
 require('./src/highlights');
 require('./src/screenshot');
 require('./src/passwords');
+require('./src/autofill');
+require('./src/readinglist');
 require('./src/privacy');
 require('./src/intro');
 
@@ -85,6 +87,7 @@ const SHORTCUTS = {
   capture: () => ctx.internal.startCapture(),
   history: () => ctx.library.toggle('history'),
   downloads: () => ctx.library.toggle('downloads'),
+  'reading-list': () => ctx.readingList.addActive(),
   settings: () => ctx.settings.open(),
   back: () => ctx.nav.back(),
   forward: () => ctx.nav.forward(),

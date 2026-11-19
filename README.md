@@ -22,6 +22,7 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 - Address bar suggestions from open tabs, history, and live search
 - Peek (⇧-click a link) to open a page in a floating card
 - Little windows for links opened from other apps
+- Reading list in the Library (⇧⌘L, or from a tab's menu or the command bar)
 - Reader view, read aloud, find in page, zoom, and swipe and mouse gestures
 - Web panels: small web apps docked beside the page
 - Media controls in the sidebar for tabs playing audio or video
@@ -35,7 +36,8 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 **Privacy and security**
 - Shields block ads and trackers, with a privacy report
 - Private windows
-- Password manager encrypted with the macOS Keychain
+- Password manager encrypted with the macOS Keychain, with CSV import from Chrome, Safari and Firefox and export
+- Address and card autofill (cards fill only on https pages; security codes are never saved)
 
 **AI (Claude)**
 - Ask about or summarize the current page, link previews, tab tidying, and smart download names
@@ -90,6 +92,7 @@ This builds `dist/mac-arm64/Surf.app`, which can be copied to `/Applications`. T
 | Right-drag ← → ↓ ↓→ | Gestures: back, forward, new tab, close |
 | ⌘Y | History |
 | ⇧⌘J | Downloads |
+| ⇧⌘L | Add to reading list |
 | ⌘, | Settings |
 | ⇧-click | Open link in Peek |
 

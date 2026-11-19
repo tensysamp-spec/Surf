@@ -501,6 +501,7 @@ function entryMenu(entry, x, y) {
     { separator: true },
     { label: 'Rename…', icon: 'edit', action: () => T().renameEntry(entry.id) },
     { label: 'Duplicate', icon: 'copy', action: () => T().duplicate(entry.id) },
+    isWeb && !U.isNewTabUrl(url) && { label: 'Add to reading list', icon: 'bookmark', hint: '⇧⌘L', action: () => ctx.readingList.addEntry(entry) },
     isWeb && !U.isNewTabUrl(url) && { label: 'Copy URL', icon: 'link', action: () => { ipcRenderer.send('copy-text', url); U.toast('Copied URL'); } },
     tab && isWeb && { label: tab.muted ? 'Unmute tab' : 'Mute tab', icon: tab.muted ? 'volume' : 'mute', action: () => ctx.media.toggleMute(tab) },
     tab && isWeb && { label: 'Reload', icon: 'reload', action: () => tab.webview.reload() },

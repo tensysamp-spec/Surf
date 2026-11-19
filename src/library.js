@@ -1,4 +1,4 @@
-// Library drawer: History, Archive, Downloads, Notes & Easels.
+// Library drawer: History, Archive, Downloads, Notes & Easels, Highlights, Reading list.
 
 const { ipcRenderer } = require('electron');
 const ctx = require('./ctx');
@@ -306,7 +306,9 @@ function renderNotes(list, query) {
   }
 }
 
-const CLEAR_LABELS = { history: 'Clear', archive: 'Clear', downloads: 'Clear list', notes: null, highlights: null };
+const CLEAR_LABELS = { history: 'Clear', archive: 'Clear', downloads: 'Clear list', notes: null, highlights: null, reading: 'Clear read' };
+const SEARCH_LABELS = { notes: 'notes & easels', reading: 'reading list' };
+const searchPlaceholder = (tab) => `Search ${SEARCH_LABELS[tab] || tab}`;
 
 function render() {
   const list = U.$('library-list');
@@ -315,11 +317,12 @@ function render() {
   document.querySelectorAll('#library-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === current));
   const clearBtn = U.$('library-clear-btn');
   clearBtn.hidden = !CLEAR_LABELS[current];
-  clearBtn.lastChild.textContent = ` ${CLEAR_LABELS[current] || ''}`;
+  clearBtn.querySelector('span').textContent = ` ${CLEAR_LABELS[current] || ''}`;
   if (current === 'history') renderHistory(list, query);
   else if (current === 'archive') renderArchive(list, query);
   else if (current === 'downloads') renderDownloads(list, query);
   else if (current === 'highlights') renderHighlights(list, query);
+  else if (current === 'reading') ctx.readingList.render(list, query);
   else renderNotes(list, query);
 }
 
@@ -332,6 +335,8 @@ async function clearCurrent() {
   } else if (current === 'downloads') {
     downloads = downloads.filter((d) => d.state === 'progressing');
     saveDownloads();
+  } else if (current === 'reading') {
+    return ctx.readingList.clearRead();
   }
   render();
 }
@@ -341,7 +346,7 @@ function open(tab = current) {
   ctx.ai.closeAssistant();
   current = tab;
   U.$('library-search').value = '';
-  U.$('library-search').placeholder = `Search ${tab === 'notes' ? 'notes & easels' : tab}`;
+  U.$('library-search').placeholder = searchPlaceholder(tab);
   render();
   document.body.classList.add('drawer-open');
   if (!release) release = U.pushEscape(close);
@@ -352,6 +357,11 @@ function close() {
   document.body.classList.remove('drawer-open');
   if (release) release();
   release = null;
+}
+
+// Re-render if the drawer is showing this tab (for modules that own a tab's data)
+function refresh(tab) {
+  if (isOpen() && current === tab) render();
 }
 
 function toggle(tab) {
@@ -370,15 +380,16 @@ function setup() {
   U.$('library-clear-btn').addEventListener('click', clearCurrent);
   document.querySelectorAll('#library-tabs button').forEach((b) => b.addEventListener('click', () => {
     current = b.dataset.tab;
-    U.$('library-search').placeholder = `Search ${current === 'notes' ? 'notes & easels' : current}`;
+    U.$('library-search').placeholder = searchPlaceholder(current);
     render();
   }));
   // Downloads that were mid-flight when the app quit can't resume
   downloads.forEach((d) => { if (d.state === 'progressing') d.state = 'interrupted'; });
   updateIndicator();
+  ctx.readingList.updateBadge();
 }
 
 ctx.library = {
-  setup, open, close, toggle, isOpen, addHistory, updateHistory, clearHistory, importHistory,
+  setup, open, close, toggle, refresh, isOpen, addHistory, updateHistory, clearHistory, importHistory,
   history: () => history,
 };

@@ -239,6 +239,7 @@ function ensureLive(entry) {
     ctx.page.bindTab(tab);
     ctx.reader.bindTab(tab);
     ctx.passwords.bindTab(tab);
+    ctx.autofill.bindTab(tab);
     ctx.highlights.bindTab(tab);
   } else {
     const view = ctx.internal.createView(entry);
