@@ -85,7 +85,7 @@ async function openPopover() {
 
   document.body.appendChild(popover);
   const r = U.$('omnibox').getBoundingClientRect();
-  popover.style.left = `${r.left}px`;
+  popover.style.left = `${ctx.sidebar.popoverLeft(r, popover.offsetWidth)}px`;
   popover.style.top = `${r.bottom + 8}px`;
   release = U.pushEscape(closePopover);
   document.addEventListener('mousedown', outside, true);

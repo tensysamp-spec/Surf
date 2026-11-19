@@ -18,7 +18,8 @@ async function list() {
 
 function openPage(ext, page, anchor) {
   const rect = anchor ? anchor.getBoundingClientRect() : null;
-  const x = rect ? window.screenX + rect.right + 8 : null;
+  // The popup window is 380px wide; it opens beside the sidebar, on the page's side
+  const x = rect ? window.screenX + (ctx.sidebar.isRight() ? rect.left - 8 - 380 : rect.right + 8) : null;
   const y = rect ? window.screenY + Math.max(40, rect.top - 200) : null;
   ipcRenderer.send('ext-open-page', { id: ext.id, page, x, y });
 }
@@ -164,7 +165,7 @@ async function openPopover() {
 
   const anchor = U.$('extensions-btn').hidden ? U.$('settings-btn') : U.$('extensions-btn');
   const r = anchor.getBoundingClientRect();
-  popover.style.left = `${r.left}px`;
+  popover.style.left = `${ctx.sidebar.popoverLeft(r, popover.offsetWidth)}px`;
   popover.style.top = `${Math.max(12, r.top - popover.offsetHeight - 8)}px`;
   release = U.pushEscape(closePopover);
   document.addEventListener('mousedown', outside, true);

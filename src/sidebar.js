@@ -16,13 +16,14 @@ let renderedSpaceId = null;
 let renderedActiveId = null;
 let activatedNow = false; // the active tab changed since the last render
 let spaceChanged = false; // the active space changed since the last render
+let spaceDrag = null; // space id being dragged in the spaces bar
 
 /* ------------------------------------------------------------------ */
 /* Rendering                                                           */
 /* ------------------------------------------------------------------ */
 
 function render() {
-  if (dragging) {
+  if (dragging || spaceDrag) {
     renderPending = true;
     return;
   }
@@ -41,15 +42,21 @@ function render() {
   renderSpaceTitle();
 }
 
-// First letter (or emoji) of a space's name, for its badge
+// The space's chosen emoji, else the first letter of its name, for its badge
 function spaceGlyph(space) {
+  if (space.icon) return space.icon;
   return [...(space.name || '?').trim()][0]?.toUpperCase() || '?';
+}
+
+// A badge element showing the glyph (emoji get their own sizing)
+function glyphEl(space, className) {
+  return U.el('span', (className || '') + (space.icon ? ' glyph-emoji' : ''), spaceGlyph(space));
 }
 
 function renderSpaceTitle() {
   const space = T().activeSpace();
   const title = U.$('space-title');
-  const badge = U.el('span', 'space-badge', spaceGlyph(space));
+  const badge = glyphEl(space, 'space-badge');
   const more = U.iconButton('more', 'Space options', (e) => {
     e.stopPropagation();
     const r = e.currentTarget.getBoundingClientRect();
@@ -240,9 +247,10 @@ function showPreview(entryId, row) {
   text.append(U.el('div', 'tp-title', T().entryTitle(entry)), U.el('div', 'tp-url', U.compactUrl((tab && tab.url) || entry.url) || entry.kind));
   card.appendChild(text);
   const r = row.getBoundingClientRect();
-  card.style.left = `${r.right + 10}px`;
-  card.style.top = `${Math.max(8, Math.min(r.top - 20, window.innerHeight - 260))}px`;
   card.hidden = false;
+  // Open toward the page, whichever side the sidebar is on
+  card.style.left = `${isRight() ? r.left - 10 - card.offsetWidth : r.right + 10}px`;
+  card.style.top = `${Math.max(8, Math.min(r.top - 20, window.innerHeight - 260))}px`;
 }
 
 function hidePreview() {
@@ -437,7 +445,9 @@ function renderSpaces() {
     dot.style.setProperty('--dot', T().themeFor(space).accent);
     const mod = process.platform === 'darwin' ? '⌃' : 'Alt+';
     dot.title = `${space.name}${i < 9 ? `  (${mod}${i + 1})` : ''}`;
-    dot.appendChild(U.el('span', null, spaceGlyph(space)));
+    dot.appendChild(glyphEl(space));
+    dot.dataset.spaceId = space.id;
+    dot.draggable = !U.PRIVATE;
     // Open the menu just above the bar so it doesn't cover the space buttons
     const openMenu = () => {
       const r = dot.getBoundingClientRect();
@@ -641,9 +651,15 @@ function themePicker(space) {
 }
 
 function spaceMenu(space, x, y) {
+  const i = T().spaces.indexOf(space);
+  const n = T().spaces.length;
   U.contextMenu([
     { header: space.name },
     { label: 'Rename space…', icon: 'edit', action: () => T().renameSpace(space.id) },
+    { label: 'Choose icon…', icon: 'smile', action: () => iconMenu(space, x, y) },
+    space.icon && { label: 'Use letter', icon: 'type', action: () => T().setSpaceIcon(space.id, null) },
+    n > 1 && { label: 'Move space left', icon: 'arrowLeft', disabled: i === 0, action: () => T().moveSpace(space.id, i - 1) },
+    n > 1 && { label: 'Move space right', icon: 'arrow', disabled: i === n - 1, action: () => T().moveSpace(space.id, i + 1) },
     { element: themePicker(space), menuClass: 'has-picker' },
     { label: 'New space…', icon: 'plus', action: () => T().addSpace() },
     { separator: true },
@@ -656,6 +672,132 @@ function spaceMenu(space, x, y) {
     { separator: true },
     { label: 'Delete space…', icon: 'trash', danger: true, disabled: T().spaces.length < 2, action: () => T().deleteSpace(space.id) },
   ].filter(Boolean), x, y);
+}
+
+/* ------------------------------------------------------------------ */
+/* Space icons: a small emoji picker                                   */
+/* ------------------------------------------------------------------ */
+
+const SPACE_EMOJI = [
+  '🏠', '💼', '🏢', '📚', '🎓', '🔬', '💡', '🧠',
+  '💻', '🛠️', '🧪', '📈', '💰', '🛒', '✈️', '🌍',
+  '🎨', '🎵', '🎮', '🎬', '📷', '✍️', '📝', '📰',
+  '❤️', '⭐', '🔥', '⚡', '🚀', '🌱', '🌊', '☀️',
+  '🍳', '☕', '🏃', '🧘', '🐶', '👶', '🎉', '🔒',
+];
+
+// First user-perceived character (so flags, skin tones and ZWJ sequences stay whole)
+function firstGrapheme(text) {
+  const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  for (const { segment } of seg.segment(text.trim())) return segment;
+  return '';
+}
+
+function iconPicker(space) {
+  const wrap = U.el('div', 'emoji-picker');
+  const grid = U.el('div', 'emoji-grid');
+  const choose = (emoji) => {
+    U.closeContextMenu();
+    T().setSpaceIcon(space.id, emoji);
+  };
+  for (const emoji of SPACE_EMOJI) {
+    const b = U.el('button', 'emoji-btn' + (space.icon === emoji ? ' active' : ''), emoji);
+    b.type = 'button';
+    b.addEventListener('click', () => choose(emoji));
+    grid.appendChild(b);
+  }
+  const input = U.el('input', 'emoji-input');
+  input.type = 'text';
+  input.placeholder = 'Type or paste any emoji, then ↵';
+  input.spellcheck = false;
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const glyph = firstGrapheme(input.value);
+    if (glyph) choose(glyph);
+  });
+  wrap.append(grid, input);
+  return wrap;
+}
+
+function iconMenu(space, x, y) {
+  U.contextMenu([
+    { header: `Icon for ${space.name}` },
+    { element: iconPicker(space), menuClass: 'has-emoji' },
+    { separator: true },
+    { label: 'Use letter', icon: 'type', checked: !space.icon, action: () => T().setSpaceIcon(space.id, null) },
+  ], x, y);
+}
+
+/* ------------------------------------------------------------------ */
+/* Reordering spaces by dragging their buttons                         */
+/* ------------------------------------------------------------------ */
+
+// Insertion index for a drag at clientX, from the buttons' midpoints
+function spaceDropIndex(bar, clientX) {
+  const dots = [...bar.querySelectorAll('.space-dot')];
+  const i = dots.findIndex((d) => {
+    const r = d.getBoundingClientRect();
+    return clientX < r.left + r.width / 2;
+  });
+  return i === -1 ? dots.length : i;
+}
+
+function showSpaceDrop(bar, index) {
+  const dots = [...bar.querySelectorAll('.space-dot')];
+  let mark = bar.querySelector('.space-drop-mark');
+  if (!mark) {
+    mark = U.el('div', 'space-drop-mark');
+    bar.appendChild(mark);
+  }
+  const barRect = bar.getBoundingClientRect();
+  const ref = dots[Math.min(index, dots.length - 1)].getBoundingClientRect();
+  const x = index < dots.length ? ref.left - 1 : ref.right + 1;
+  mark.style.left = `${x - barRect.left - 1}px`;
+}
+
+function clearSpaceDrop() {
+  const mark = U.$('spaces-bar').querySelector('.space-drop-mark');
+  if (mark) mark.remove();
+}
+
+function setupSpaceDrag() {
+  const bar = U.$('spaces-bar');
+  bar.addEventListener('dragstart', (e) => {
+    const dot = e.target.closest('.space-dot');
+    if (!dot) return;
+    spaceDrag = dot.dataset.spaceId;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/x-surf-space', spaceDrag);
+    requestAnimationFrame(() => dot.classList.add('drag-source'));
+  });
+  bar.addEventListener('dragover', (e) => {
+    if (!spaceDrag) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    showSpaceDrop(bar, spaceDropIndex(bar, e.clientX));
+  });
+  bar.addEventListener('dragleave', (e) => {
+    if (!bar.contains(e.relatedTarget)) clearSpaceDrop();
+  });
+  bar.addEventListener('drop', (e) => {
+    if (!spaceDrag) return;
+    e.preventDefault();
+    const id = spaceDrag;
+    let index = spaceDropIndex(bar, e.clientX);
+    const from = T().spaces.findIndex((s) => s.id === id);
+    if (from < index) index--; // the dragged one leaves its old slot first
+    spaceDrag = null;
+    clearSpaceDrop();
+    if (index !== from) T().moveSpace(id, index);
+    else render();
+  });
+  bar.addEventListener('dragend', () => {
+    if (!spaceDrag) return;
+    spaceDrag = null;
+    clearSpaceDrop();
+    render();
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -889,7 +1031,26 @@ function setCompact(on) {
 function toggleCompact() {
   const on = !document.body.classList.contains('compact');
   setCompact(on);
-  U.toast(on ? 'Compact mode — hover the left edge for the sidebar (⌥⌘C to exit)' : 'Compact mode off');
+  U.toast(on ? `Compact mode — hover the ${isRight() ? 'right' : 'left'} edge for the sidebar (⌥⌘C to exit)` : 'Compact mode off');
+}
+
+/* ------------------------------------------------------------------ */
+/* Position: left or right of the page                                 */
+/* ------------------------------------------------------------------ */
+
+const isRight = () => document.body.classList.contains('sidebar-right');
+
+// Applied instantly; the layout flips in CSS (body.sidebar-right)
+function setPosition(position) {
+  hidePreview();
+  U.closeContextMenu();
+  document.body.classList.toggle('sidebar-right', position === 'right');
+}
+
+// Left edge for a popover anchored to something in the sidebar: it grows toward the page
+function popoverLeft(anchor, width) {
+  if (isRight()) return Math.max(8, anchor.right - width);
+  return Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8));
 }
 
 /* ------------------------------------------------------------------ */
@@ -953,6 +1114,7 @@ function setupSpaceSwipe() {
 function setup() {
   setupDragAndDrop();
   setupSpaceSwipe();
+  setupSpaceDrag();
 
   U.$('sidebar-toggle-btn').addEventListener('click', toggleCollapsed);
   U.$('sidebar-edge').addEventListener('mouseenter', reveal);
@@ -985,12 +1147,13 @@ function setup() {
     spaceMenu(T().activeSpace(), e.clientX, e.clientY);
   });
 
+  setPosition(ctx.settings.get('sidebarPosition'));
   setCollapsed(U.store.get('browser.sidebarCollapsed', false));
   if (U.store.get('browser.compact', false)) setCompact(true);
   setupResizer();
 }
 
-// Drag the sidebar's right edge to resize it (remembered)
+// Drag the sidebar's inner edge (next to the page) to resize it (remembered)
 function setupResizer() {
   const root = document.documentElement.style;
   const saved = U.store.get('browser.sidebarWidth', null);
@@ -1002,7 +1165,8 @@ function setupResizer() {
     const startW = U.$('sidebar').offsetWidth;
     document.body.classList.add('resizing');
     const move = (ev) => {
-      const w = Math.max(200, Math.min(420, startW + ev.clientX - startX));
+      const dx = (ev.clientX - startX) * (isRight() ? -1 : 1);
+      const w = Math.max(200, Math.min(420, startW + dx));
       root.setProperty('--sidebar-w', `${w}px`);
     };
     const up = () => {
@@ -1020,4 +1184,4 @@ function setupResizer() {
   });
 }
 
-ctx.sidebar = { setup, render, updateEntry, toggleCollapsed, toggleCompact, reveal, unpeek, entryMenu, shareMenu, hidePreview, themePicker };
+ctx.sidebar = { setup, render, updateEntry, toggleCollapsed, toggleCompact, reveal, unpeek, entryMenu, shareMenu, hidePreview, themePicker, spaceGlyph, setPosition, isRight, popoverLeft };

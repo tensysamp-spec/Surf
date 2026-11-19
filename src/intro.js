@@ -120,13 +120,16 @@ function position() {
     height: `${box.bottom - box.top}px`,
   });
 
-  // Prefer the right of the target (sidebar items), else below, else above.
+  // Prefer the page side of the target (sidebar items), else below, else above.
   const cw = card.offsetWidth;
   const ch = card.offsetHeight;
   const gap = 14;
   let left;
   let top;
-  if (box.right + gap + cw <= innerWidth - 12) {
+  if (ctx.sidebar.isRight() && box.left - gap - cw >= 12) {
+    left = box.left - gap - cw;
+    top = Math.min(Math.max(12, (box.top + box.bottom) / 2 - ch / 2), innerHeight - ch - 12);
+  } else if (box.right + gap + cw <= innerWidth - 12) {
     left = box.right + gap;
     top = Math.min(Math.max(12, (box.top + box.bottom) / 2 - ch / 2), innerHeight - ch - 12);
   } else if (box.bottom + gap + ch <= innerHeight - 12) {

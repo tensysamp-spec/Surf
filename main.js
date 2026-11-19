@@ -148,6 +148,7 @@ function matchShortcut(input, win) {
   if (input.shift) {
     switch (input.code) {
       case 'KeyT': return 'reopen-closed';
+      case 'KeyA': return 'tab-search';
       case 'KeyR': return 'reader';
       case 'KeyC': return 'copy-url';
       case 'KeyD': return 'split-view';
