@@ -6,6 +6,6 @@
     </linearGradient>
   </defs>
   <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#sea)"/>
-  <!-- a surfboard fin: curved leading edge sweeping back to a rounded tip, concave trailing edge -->
-  <path fill="#fff" d="M700 772 C690 560 572 362 336 238 C306 222 290 244 304 266 C392 402 430 580 372 772 Q368 786 384 786 H684 Q702 786 700 772 Z"/>
+  <!-- a surfboard fin, upside down (base on top, tip pointing down) and widened: curved leading edge sweeping back to a rounded tip, concave trailing edge -->
+  <path transform="translate(512 512) scale(1.3 -1) translate(-496 -504)" fill="#fff" d="M700 772 C690 560 572 362 336 238 C306 222 290 244 304 266 C392 402 430 580 372 772 Q368 786 384 786 H684 Q702 786 700 772 Z"/>
 </svg>
