@@ -271,6 +271,7 @@ function unload(entryId) {
   tab.view.remove();
   if (tab.errorEl) tab.errorEl.remove();
   if (tab.readerEl) ctx.reader.close(tab);
+  if (tab.pdfEl) ctx.pdfAnnotate.close(tab, { force: true });
   ctx.media.forget(tab);
 }
 

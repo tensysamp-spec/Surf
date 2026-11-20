@@ -81,6 +81,7 @@ require('./main/autofill')(M);
 require('./main/offline')(M);
 require('./main/media')(M);
 const profiles = require('./main/profiles')(M);
+require('./main/pdf')(M);
 
 /* ------------------------------------------------------------------ */
 /* Misc IPC                                                            */

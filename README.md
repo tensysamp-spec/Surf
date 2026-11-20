@@ -29,6 +29,7 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 - Little windows for links opened from other apps
 - Reading list in the Library (⇧⌘L, or from a tab's menu or the command bar), with reading time and offline copies that open with no network
 - Reader view with font, size, line width, spacing and theme controls, reading time and a progress bar; read aloud, find in page, zoom, and swipe and mouse gestures
+- PDFs: fill in forms in the built-in viewer and save them with Download → With your changes (lands in Downloads like any download); or Annotate PDF (the PDF button in the address bar, or the command bar) to highlight text, add notes, draw, place a saved signature and fill forms, then Save a copy… as a new PDF. Tools: V select/move, H highlight, T note, D draw, S sign, ⌫ delete, ⌘Z / ⇧⌘Z undo/redo
 - Web panels: small web apps docked beside the page
 - Media hub in the sidebar: every tab playing audio or video, with play/pause, mute, skip ±10 s and next/previous track; media keys control the latest one, and "Mute all other tabs" silences the rest
 - Downloads you can pause, resume, cancel and retry, with speed and time left (in the shelf and Library → Downloads), "Open when done", and a download folder or ask-each-time in Settings → Downloads
@@ -70,6 +71,8 @@ npm run package
 ```
 
 This builds `dist/mac-arm64/Surf.app`, which can be copied to `/Applications`. The build is for Apple Silicon only and is unsigned, so on other Macs open it the first time with right-click → Open.
+
+`npm run package:universal` builds `dist/mac-universal/Surf.app` for both Apple silicon and Intel Macs. To make a signed and notarized download, use `npm run release` and follow [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Tests
 

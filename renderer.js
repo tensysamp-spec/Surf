@@ -37,6 +37,7 @@ require('./src/readinglist');
 require('./src/privacy');
 require('./src/intro');
 require('./src/updates');
+require('./src/pdf-annotate');
 
 /* ------------------------------------------------------------------ */
 /* Main-process events                                                 */

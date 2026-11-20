@@ -73,6 +73,7 @@ function update(syncUrl = false) {
   const reader = U.$('reader-btn');
   reader.disabled = !(isWeb && (tab.readerable || tab.readerEl));
   reader.classList.toggle('active', !!(isWeb && tab.readerEl));
+  ctx.pdfAnnotate.updateButton(tab);
   e.boost.disabled = !canFavorite;
   e.boost.classList.toggle('active', canFavorite && ctx.boosts.isActiveFor(url));
 
