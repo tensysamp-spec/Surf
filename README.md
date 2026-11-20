@@ -68,6 +68,8 @@ npm run package
 
 This builds `dist/mac-arm64/Surf.app`, which can be copied to `/Applications`. The build is for Apple Silicon only and is unsigned, so on other Macs open it the first time with right-click → Open.
 
+`npm run package:universal` builds `dist/mac-universal/Surf.app` for both Apple silicon and Intel Macs. To make a signed and notarized download, use `npm run release` and follow [docs/RELEASING.md](docs/RELEASING.md).
+
 ## Tests
 
 ```sh

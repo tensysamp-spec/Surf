@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node --test test/",
     "start": "electron .",
-    "package": "electron-builder --mac --dir && codesign --force --deep --sign - dist/mac*/Surf.app"
+    "package": "electron-builder --mac --dir && codesign --force --deep --sign - dist/mac*/Surf.app",
+    "package:universal": "electron-builder --mac dir --universal && codesign --force --deep --sign - dist/mac-universal/Surf.app",
+    "release": "electron-builder --mac --config build/release.config.js --publish never"
   },
   "keywords": [],
   "author": "",
@@ -36,6 +38,10 @@
       "!server/**",
       "!*.md",
       "!build/icon.svg",
+      "!build/release.config.js",
+      "!build/entitlements.mac.plist",
+      "!docs/**",
+      "!release/**",
       "!node_modules/pdfjs-dist/{legacy,types,image_decoders}/**",
       "!node_modules/pdfjs-dist/**/*.map",
       "!node_modules/pdf-lib/{dist,es,src,ts3.4}/**"
