@@ -3438,3 +3438,36 @@ body.dark .has-site.pinned-tile.active, body.dark .has-site.favorite.active {
 @media (prefers-reduced-motion: reduce) {
   .pinned-tile:active, .favorite:active { transform: none; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Media hub: every tab playing sound, at the bottom of the sidebar     */
+/* ------------------------------------------------------------------ */
+#media-player { flex-direction: column; align-items: stretch; gap: 0; padding: 3px 4px 4px; }
+.media-head { display: flex; align-items: center; gap: 2px; height: 22px; }
+.media-head-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+  text-align: left;
+}
+.media-head-toggle:hover { color: var(--text-dim); }
+.media-head-toggle svg { width: 12px; height: 12px; }
+.media-head .icon-btn.small { min-width: 22px; height: 22px; }
+.media-head .icon-btn svg { width: 13px; height: 13px; }
+.media-item { display: flex; flex-direction: column; border-radius: var(--radius-sm); }
+.media-row { display: flex; align-items: center; gap: 2px; min-height: 32px; padding: 0 0 0 4px; border-radius: var(--radius-sm); }
+.media-row:hover { background: var(--glass-1); }
+.media-item .media-controls .icon-btn svg, .media-transport .icon-btn svg { width: 14px; height: 14px; }
+.media-item.paused .media-title { color: var(--text-dim); }
+.media-transport { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 1px 0 1px; }
+.media-transport .icon-btn.small { min-width: 28px; height: 26px; }
+.media-rest { margin-top: 3px; padding-top: 3px; border-top: 1px solid var(--line); max-height: 152px; overflow-y: auto; }
+.media-rest::-webkit-scrollbar { width: 0; }

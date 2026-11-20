@@ -235,6 +235,7 @@ function ensureLive(entry) {
     ctx.passwords.bindTab(tab);
     ctx.autofill.bindTab(tab);
     ctx.highlights.bindTab(tab);
+    ctx.media.bindTab(tab);
   } else {
     const view = ctx.internal.createView(entry);
     tab = {

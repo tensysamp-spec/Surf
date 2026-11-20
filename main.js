@@ -78,6 +78,7 @@ const sessions = require('./main/sessions')(M);
 const ai = require('./main/ai')(M);
 const tools = require('./main/tools')(M);
 require('./main/autofill')(M);
+require('./main/media')(M);
 const profiles = require('./main/profiles')(M);
 
 /* ------------------------------------------------------------------ */
