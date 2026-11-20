@@ -40,6 +40,8 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 
 **Privacy and security**
 - Shields block ads and trackers, with a privacy report
+- Cookie banners from the big consent platforms are hidden and rejected where possible (never accepted); off per site from the shield
+- HTTPS-only mode, fingerprinting protection (on in private windows by default) and Global Privacy Control, in Settings → Privacy
 - Private windows
 - Password manager encrypted with the macOS Keychain, with CSV import from Chrome, Safari and Firefox and export
 - Address and card autofill (cards fill only on https pages; security codes are never saved)

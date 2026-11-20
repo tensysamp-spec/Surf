@@ -153,6 +153,7 @@ const ERROR_TEXT = {
 
 function showError(tab, e) {
   clearError(tab);
+  if (ctx.privacy.httpsFailed(tab, e)) return;
   const [title, hint] = ERROR_TEXT[String(e.errorCode)] || ['This page didn’t load', 'Something went wrong while loading this page.'];
   const host = U.hostOf(e.validatedURL);
   const page = U.el('div', 'error-page tab-overlay');
