@@ -30,7 +30,9 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 - Reading list in the Library (⇧⌘L, or from a tab's menu or the command bar)
 - Reader view, read aloud, find in page, zoom, and swipe and mouse gestures
 - Web panels: small web apps docked beside the page
-- Media controls in the sidebar for tabs playing audio or video
+- Media hub in the sidebar: every tab playing audio or video, with play/pause, mute, skip ±10 s and next/previous track; media keys control the latest one, and "Mute all other tabs" silences the rest
+- Downloads you can pause, resume, cancel and retry, with speed and time left (in the shelf and Library → Downloads), "Open when done", and a download folder or ask-each-time in Settings → Downloads
+- Update checker: tells you when a new Surf release is out on GitHub (Settings → Updates; Surf is unsigned, so Download fetches the new version for you to move into Applications)
 
 **Making the web yours**
 - Boosts: per-site dark mode, colors, fonts, custom CSS, and zapping elements
