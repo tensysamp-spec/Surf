@@ -27,6 +27,7 @@ require('./src/reader');
 require('./src/offline');
 require('./src/extensions');
 require('./src/livefolders');
+require('./src/folders');
 require('./src/panels');
 require('./src/speech');
 require('./src/highlights');

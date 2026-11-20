@@ -3594,3 +3594,18 @@ body.dark .has-site.pinned-tile.active, body.dark .has-site.favorite.active {
   font-weight: 600;
 }
 .rl-offline svg { width: 10px; height: 10px; }
+
+/* ------------------------------------------------------------------ */
+/* Smarter folders (src/folders.js): emoji icon, color tint            */
+/* ------------------------------------------------------------------ */
+.folder-emoji { display: block; width: 16px; font-size: 14px; line-height: 16px; text-align: center; transition: transform var(--t-fast); }
+.folder-row:hover .folder-emoji { transform: rotate(-8deg) translateY(-1px); }
+.folder-row:active .folder-emoji { transform: scale(0.92); }
+.folder.tinted > .folder-row { background: color-mix(in srgb, var(--folder) 14%, transparent); }
+.folder.tinted > .folder-row:hover { background: color-mix(in srgb, var(--folder) 20%, transparent); }
+.folder.tinted > .folder-row.drop-into { background: var(--accent-soft); }
+.folder.tinted > .folder-row .folder-icon svg { color: var(--folder); fill: color-mix(in srgb, var(--folder) 22%, transparent); }
+.folder.tinted > .folder-row:hover .folder-icon svg { fill: color-mix(in srgb, var(--folder) 38%, transparent); }
+.folder.tinted > .folder-children::before { background: color-mix(in srgb, var(--folder) 40%, transparent); }
+body.dark .folder.tinted > .folder-row { background: color-mix(in srgb, var(--folder) 16%, transparent); }
+body.dark .folder.tinted > .folder-row:hover { background: color-mix(in srgb, var(--folder) 24%, transparent); }
