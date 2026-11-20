@@ -24,6 +24,7 @@ require('./src/ai');
 require('./src/page');
 require('./src/suggest');
 require('./src/reader');
+require('./src/offline');
 require('./src/extensions');
 require('./src/livefolders');
 require('./src/panels');
