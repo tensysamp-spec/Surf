@@ -34,6 +34,7 @@ require('./src/passwords');
 require('./src/autofill');
 require('./src/readinglist');
 require('./src/privacy');
+require('./src/cleardata');
 require('./src/intro');
 require('./src/recovery');
 
@@ -116,6 +117,7 @@ const SHORTCUTS = {
   compact: () => ctx.sidebar.toggleCompact(),
   devtools: () => ctx.page.openDevTools(),
   screenshot: () => ctx.screenshot.menu(),
+  'clear-data': () => ctx.clearData.open(),
 };
 
 ipcRenderer.on('shortcut', (_e, action) => {

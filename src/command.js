@@ -77,6 +77,7 @@ function actions() {
     { title: 'Show downloads', keywords: 'downloads files', icon: 'download', hint: K('downloads'), run: () => ctx.library.open('downloads') },
     { title: 'Show notes & easels', keywords: 'notes easels library', icon: 'note', run: () => ctx.library.open('notes') },
     { title: 'Clear history', keywords: 'clear delete history', icon: 'trash', run: () => ctx.library.clearHistory() },
+    { title: 'Clear browsing data…', keywords: 'clear browsing data delete cookies cache history site data privacy', icon: 'trash', hint: K('clear-data'), run: () => ctx.clearData.open() },
     { title: 'Mute tab', keywords: 'mute sound audio', icon: 'mute', when: isWeb && !tab.muted, run: () => ctx.media.toggleMute(tab) },
     { title: 'Unmute tab', keywords: 'unmute sound audio', icon: 'volume', when: isWeb && tab.muted, run: () => ctx.media.toggleMute(tab) },
     { title: 'Settings', keywords: 'settings preferences options api key', icon: 'settings', hint: K('settings'), run: () => ctx.settings.open() },

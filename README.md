@@ -42,6 +42,7 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 - Shields block ads and trackers, with a privacy report
 - Private windows
 - Crash recovery: tabs, scroll positions and the open Library come back after a crash, and a crashed page shows a Reload button
+- Clear browsing data (⇧⌘⌫, Surf → Clear Browsing Data…, the command bar, or Settings → Privacy): history, archived tabs, the downloads list, cookies and site data, the cache and site permissions, for the last hour, day, week or all time
 - Password manager encrypted with the macOS Keychain, with CSV import from Chrome, Safari and Firefox and export
 - Address and card autofill (cards fill only on https pages; security codes are never saved)
 

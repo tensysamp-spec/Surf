@@ -78,6 +78,7 @@ const sessions = require('./main/sessions')(M);
 const ai = require('./main/ai')(M);
 const tools = require('./main/tools')(M);
 require('./main/autofill')(M);
+require('./main/cleardata')(M);
 const profiles = require('./main/profiles')(M);
 const recovery = require('./main/recovery')(M);
 
@@ -448,6 +449,10 @@ app.on('web-contents-created', (_event, contents) => {
         win.close();
       } else if (action === 'settings') {
         event.preventDefault();
+      } else if (action === 'clear-data') {
+        // The owning window draws the dialog into this Settings window (it has focus)
+        event.preventDefault();
+        sendToWindow(settingsWindows.get(win), 'shortcut', action);
       }
       return;
     }
@@ -543,6 +548,12 @@ function buildMenu() {
         { role: 'about' },
         { type: 'separator' },
         { label: 'Settings…', ...accel('settings'), click: () => sendShortcut('settings') },
+        // From a Settings window, the window that owns it (it draws the dialog into Settings)
+        { label: 'Clear Browsing Data…', ...accel('clear-data'), click: () => {
+          const owner = settingsWindows.get(BrowserWindow.getFocusedWindow());
+          if (owner) sendToWindow(owner, 'shortcut', 'clear-data');
+          else sendShortcut('clear-data');
+        } },
         profileMenu,
         { type: 'separator' },
         { role: 'services' },

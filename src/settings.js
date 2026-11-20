@@ -342,6 +342,9 @@ async function open(section = null) {
     ctx.privacy.openReport();
   });
   body.appendChild(field('Privacy report', reportBtn, 'Which trackers were blocked, and on which sites.'));
+  const clearBtn = U.el('button', 'btn', 'Clear…');
+  clearBtn.addEventListener('click', () => ctx.clearData.open());
+  body.appendChild(field('Clear browsing data', clearBtn, 'History, archived tabs, downloads list, cookies, cache and site permissions.'));
 
   heading('Import', 'import');
   const importRow = U.el('div', 'boost-row');

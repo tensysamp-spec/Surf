@@ -39,6 +39,7 @@ const ACTIONS = [
   ['private-window', 'Shift+Mod+N', 'Private window'],
   ['reopen-window', 'Alt+Shift+Mod+T', 'Reopen closed window'],
   ['devtools', 'Alt+Mod+I', 'Page DevTools'],
+  ['clear-data', 'Shift+Mod+Backspace', 'Clear browsing data'],
   ['settings', 'Mod+,', 'Settings'],
 ];
 
