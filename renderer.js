@@ -27,6 +27,7 @@ require('./src/reader');
 require('./src/offline');
 require('./src/extensions');
 require('./src/livefolders');
+require('./src/folders');
 require('./src/panels');
 require('./src/speech');
 require('./src/highlights');
@@ -38,6 +39,7 @@ require('./src/privacy');
 require('./src/intro');
 require('./src/updates');
 require('./src/pdf-annotate');
+require('./src/spaceshare');
 
 /* ------------------------------------------------------------------ */
 /* Main-process events                                                 */
@@ -50,13 +52,21 @@ ipcRenderer.on('open-in-new-tab', (_e, { url, background }) => {
 
 ipcRenderer.on('peek-url', (_e, url) => ctx.peek.open(url));
 
+// The cookie jar of the page a menu was opened on (Peek and others: the active tab's)
+function partitionOf(webContentsId) {
+  const tab = [...ctx.tabs.live.values()].find((t) => t.webContentsId === webContentsId);
+  return tab ? ctx.tabs.partitionFor(tab.entryId) : ctx.tabs.activePartition();
+}
+
 ipcRenderer.on('context-action', (_e, { type, url, webContentsId }) => {
   switch (type) {
     case 'new-tab': ctx.tabs.openTab(url, { activate: false }); break;
     case 'peek': ctx.peek.open(url); break;
     case 'split': ctx.tabs.splitWithUrl(url); break;
     case 'search': ctx.tabs.openTab(U.searchUrl(url)); break;
-    case 'summarize-link': ctx.ai.summarizeLink(url); break;
+    case 'summarize-link': ctx.ai.summarizeLink(url, partitionOf(webContentsId)); break;
+    // Opened from an isolated Space's tab: the little window keeps that Space's logins
+    case 'little-window': ipcRenderer.send('open-little-window', url, partitionOf(webContentsId)); break;
     case 'translate': ctx.ai.translatePage(); break;
     case 'read-aloud': ctx.speech.readActive(); break;
     case 'screenshot': ctx.screenshot.menu(); break;
@@ -149,6 +159,7 @@ ctx.liveFolders.setup();
 ctx.bookmarks.setup();
 ctx.profiles.setup();
 ctx.updates.setup();
+ctx.spaceShare.setup();
 
 // Air Traffic Control: a link from another app routed to a Space
 ipcRenderer.on('open-in-space', (_e, { url, spaceId }) => {

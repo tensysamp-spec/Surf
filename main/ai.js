@@ -298,9 +298,11 @@ module.exports = function setupAi(M) {
 
   // Readable text of a URL (for link summaries / previews / chatting with unloaded tabs)
   // (with the asking window's cookies, so a private window never sends the normal profile's)
-  ipcMain.handle('fetch-page-text', async (event, url) => {
+  // (partition: the asking tab's isolated Space, so it gets that Space's logins, not the default ones)
+  ipcMain.handle('fetch-page-text', async (event, url, partition) => {
+    if (typeof url !== 'string' || !/^https?:/i.test(url)) return { error: 'Not a web page' };
     try {
-      const res = await M.sessionFor(event.sender).fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const res = await M.sessionForPartition(event.sender, partition).fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
       const html = await res.text();
       const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
       const text = html
@@ -317,9 +319,11 @@ module.exports = function setupAi(M) {
   });
 
   // Raw text of a URL (RSS/Atom feeds, JSON APIs for live folders)
-  ipcMain.handle('fetch-text', async (_event, url) => {
+  // (in the session of the Space the live folder lives in; a private window's own partition)
+  ipcMain.handle('fetch-text', async (event, url, partition) => {
+    if (typeof url !== 'string' || !/^https?:/i.test(url)) return { error: 'Not a web address' };
     try {
-      const res = await net.fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Surf live folders)', Accept: '*/*' } });
+      const res = await M.sessionForPartition(event.sender, partition).fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Surf live folders)', Accept: '*/*' } });
       if (!res.ok) return { error: `HTTP ${res.status}` };
       return { text: await res.text() };
     } catch (err) {

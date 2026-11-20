@@ -155,7 +155,7 @@ function fillPinnedTile(tile, entry) {
   tile.classList.toggle('wandered', wandered);
   tile.classList.toggle('unread', !!entry.unread);
   // Glow with the pinned site's own icon, even while browsing elsewhere in the tab
-  ctx.siteColor.apply(tile, entry.favicon || T().entryFavicon(entry));
+  ctx.siteColor.apply(tile, entry.favicon || T().entryFavicon(entry), T().partitionFor(entry.id));
 
   const icon = U.el('span', 'tile-icon');
   icon.appendChild(entryIconNode(entry, tab));
@@ -273,7 +273,13 @@ function folderBlock(folder, section, index) {
   row.draggable = true;
 
   const iconWrap = U.el('span', 'row-icon folder-icon');
-  iconWrap.appendChild(U.icon(folder.live ? 'rss' : folder.open ? 'folderOpen' : 'folder'));
+  // A chosen emoji replaces the glyph; a chosen color tints the row (see "Smarter folders" in style.css)
+  if (folder.icon) iconWrap.appendChild(U.el('span', 'folder-emoji', folder.icon));
+  else iconWrap.appendChild(U.icon(folder.live ? 'rss' : folder.open ? 'folderOpen' : 'folder'));
+  if (folder.color) {
+    wrap.classList.add('tinted');
+    wrap.style.setProperty('--folder', folder.color);
+  }
   row.append(iconWrap, U.el('span', 'row-title', folder.name));
   const unread = folder.children.filter((c) => c.unread).length;
   if (folder.live && unread) row.appendChild(U.el('span', 'row-count live', String(unread)));
@@ -296,6 +302,7 @@ function folderBlock(folder, section, index) {
       folder.live && { label: 'Refresh now', icon: 'reload', action: () => ctx.liveFolders.refresh(folder.id, true) },
       folder.live && { label: 'Mark all as read', icon: 'eye', action: () => ctx.liveFolders.markRead(folder.id) },
       { label: 'Share folder…', icon: 'share', action: () => shareMenu(folder.name, folder.children, e.clientX, e.clientY) },
+      ...ctx.folders.menuItems(folder, e.clientX, e.clientY),
       { separator: true },
       { label: 'Delete folder', icon: 'trash', danger: true, action: () => T().deleteFolder(folder.id) },
     ].filter(Boolean), e.clientX, e.clientY);
@@ -419,7 +426,7 @@ function renderFavorites() {
     tile.classList.toggle('loaded', !!tab);
     tile.title = `${T().entryTitle(fav)}\n${fav.url}`;
     tile.appendChild(U.iconElement(T().entryFavicon(fav), U.ICONS.globe));
-    ctx.siteColor.apply(tile, fav.favicon || T().entryFavicon(fav));
+    ctx.siteColor.apply(tile, fav.favicon || T().entryFavicon(fav), T().partitionFor(fav.id));
     if (tab && (tab.audible || tab.muted)) tile.appendChild(U.el('span', 'fav-audio'));
 
     tile.addEventListener('click', () => T().showEntry(fav.id));
@@ -508,6 +515,7 @@ function entryMenu(entry, x, y) {
     canSplit && { label: 'Open in split view', icon: 'split', action: () => T().splitWith(T().activeEntryId, entry.id) },
     split && { label: 'Separate split view', icon: 'split', action: () => T().unsplit(split.id) },
     loc.section !== 'fav' && !split && { label: 'New folder with tab…', icon: 'folder', action: () => T().createFolder(loc.section, entry.id) },
+    loc.section === 'today' && !split && ctx.folders.siteOfEntry(entry.id) && { label: 'Group tabs from this site', icon: 'folder', action: () => ctx.folders.groupBySite(entry.id) },
     { separator: true },
     { label: 'Rename…', icon: 'edit', action: () => T().renameEntry(entry.id) },
     { label: 'Duplicate', icon: 'copy', action: () => T().duplicate(entry.id) },
@@ -667,6 +675,8 @@ function spaceMenu(space, x, y) {
     n > 1 && { label: 'Move space right', icon: 'arrow', disabled: i === n - 1, action: () => T().moveSpace(space.id, i + 1) },
     { element: themePicker(space), menuClass: 'has-picker' },
     { label: 'New space…', icon: 'plus', action: () => T().addSpace() },
+    { label: 'New space from template…', icon: 'layers', action: () => ctx.spaceShare.templateMenu(x, y) },
+    { label: 'Import space…', icon: 'download', action: () => ctx.spaceShare.importFile() },
     { separator: true },
     { header: 'Search engine' },
     { label: 'Default', checked: !space.searchEngine, action: () => T().setSpaceSearchEngine(space.id, null) },
@@ -674,6 +684,8 @@ function spaceMenu(space, x, y) {
     { separator: true },
     !U.PRIVATE && { label: space.isolated ? 'Share logins with other spaces' : 'Separate logins for this space', icon: 'user', checked: !!space.isolated, action: () => T().toggleSpaceIsolation(space.id) },
     { label: 'Share space…', icon: 'share', action: () => shareMenu(space.name, [...space.pinned, ...space.today], x, y) },
+    { label: 'Export space…', icon: 'file', action: () => ctx.spaceShare.exportSpace(space) },
+    { label: 'Save as template…', icon: 'layers', action: () => ctx.spaceShare.saveAsTemplate(space) },
     { separator: true },
     { label: 'Delete space…', icon: 'trash', danger: true, disabled: T().spaces.length < 2, action: () => T().deleteSpace(space.id) },
   ].filter(Boolean), x, y);
@@ -698,13 +710,13 @@ function firstGrapheme(text) {
   return '';
 }
 
-function iconPicker(space) {
+// Also used for folder icons (src/folders.js), which pass their own choose()
+function iconPicker(space, choose = (emoji) => {
+  U.closeContextMenu();
+  T().setSpaceIcon(space.id, emoji);
+}) {
   const wrap = U.el('div', 'emoji-picker');
   const grid = U.el('div', 'emoji-grid');
-  const choose = (emoji) => {
-    U.closeContextMenu();
-    T().setSpaceIcon(space.id, emoji);
-  };
   for (const emoji of SPACE_EMOJI) {
     const b = U.el('button', 'emoji-btn' + (space.icon === emoji ? ' active' : ''), emoji);
     b.type = 'button';
@@ -857,6 +869,7 @@ function newTabMenu(x, y) {
     { label: 'New folder', icon: 'folder', action: () => T().createFolder('today') },
     { label: 'New pinned folder', icon: 'folder', action: () => T().createFolder('pinned') },
     { label: 'New live folder…', icon: 'rss', action: () => ctx.liveFolders.create() },
+    { label: 'Sort Today…', icon: 'layers', action: () => ctx.folders.todayMenu(x, y) },
     { separator: true },
     !U.PRIVATE && { label: 'New private window', icon: 'mask', hint: '⇧⌘N', action: () => ipcRenderer.send('open-private-window') },
   ].filter(Boolean), x, y);
@@ -1145,6 +1158,10 @@ function setup() {
     newTabMenu(r.left, r.bottom + 4);
   });
   U.$('clear-today-btn').addEventListener('click', () => T().clearToday());
+  U.$('clear-today-btn').parentElement.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    ctx.folders.todayMenu(e.clientX, e.clientY);
+  });
   U.$('add-space-btn').addEventListener('click', () => T().addSpace());
   U.$('space-title').addEventListener('dblclick', () => T().renameSpace(T().activeSpaceId));
   U.$('space-title').addEventListener('contextmenu', (e) => {
@@ -1190,3 +1207,4 @@ function setupResizer() {
 }
 
 ctx.sidebar = { setup, render, updateEntry, toggleCollapsed, toggleCompact, reveal, unpeek, entryMenu, shareMenu, hidePreview, themePicker, spaceGlyph, setPosition, isRight, popoverLeft };
+ctx.sidebar.iconPicker = iconPicker;

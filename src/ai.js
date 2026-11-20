@@ -150,12 +150,13 @@ async function summarizePage() {
   if (session && !session.messages.length && !streaming) ask('Summarize this page.');
 }
 
-async function summarizeLink(url) {
+// partition: the session of the tab the link was in (an isolated Space has its own logins)
+async function summarizeLink(url, partition = T().activePartition()) {
   startSession({ url, title: U.compactUrl(url), text: '' });
   show();
   const list = U.$('assistant-messages');
   list.replaceChildren(U.el('div', 'assistant-note', `Reading ${U.compactUrl(url)}…`));
-  const result = await ipcRenderer.invoke('fetch-page-text', url);
+  const result = await ipcRenderer.invoke('fetch-page-text', url, partition);
   if (result.error || !result.text) {
     list.replaceChildren(U.el('div', 'assistant-note error', `Couldn’t read that page${result.error ? `: ${result.error}` : '.'}`));
     return;
@@ -239,7 +240,7 @@ async function extraPages() {
       text = (ctx.internal.noteText && ctx.internal.noteText(entry.refId)) || '';
     }
     if (!text && /^https?:/i.test(url)) {
-      const fetched = await ipcRenderer.invoke('fetch-page-text', url);
+      const fetched = await ipcRenderer.invoke('fetch-page-text', url, T().partitionFor(id));
       text = fetched.text || '';
       title = fetched.title || title;
     }
@@ -645,7 +646,7 @@ async function linkPreview() {
     return;
   }
 
-  const page = await ipcRenderer.invoke('fetch-page-text', url);
+  const page = await ipcRenderer.invoke('fetch-page-text', url, T().activePartition());
   if (!U.$('link-preview')) return;
   if (page.error || !page.text) {
     body.classList.remove('streaming');
