@@ -119,7 +119,7 @@ function updateZoomBadge() {
   const level = tab && tab.kind === 'web' ? zoomLevels[zoomHost(tab.url)] || 0 : 0;
   badge.hidden = !level;
   badge.textContent = `${zoomPercent(level)}%`;
-  badge.title = 'Reset zoom (⌘0)';
+  badge.title = ctx.shortcuts.tip('Reset zoom', 'zoom-reset');
 }
 
 /* ------------------------------------------------------------------ */
@@ -365,7 +365,7 @@ function updateDevPill() {
     tab.devErrors = 0;
     tab.webview.reloadIgnoringCache();
   }, 'icon-btn small'));
-  pill.appendChild(U.iconButton('code', 'DevTools (⌥⌘I)', () => openDevTools(tab), 'icon-btn small'));
+  pill.appendChild(U.iconButton('code', ctx.shortcuts.tip('DevTools', 'devtools'), () => openDevTools(tab), 'icon-btn small'));
 }
 
 function openDevTools(tab = T().activeTab()) {

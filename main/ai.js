@@ -56,13 +56,13 @@ module.exports = function setupAi(M) {
   }
 
   function friendlyError(err) {
-    if (err instanceof Anthropic.AuthenticationError) return 'Your API key was rejected. Check it in Settings (⌘,).';
+    if (err instanceof Anthropic.AuthenticationError) return 'Your API key was rejected. Check it in Settings.';
     if (err instanceof Anthropic.PermissionDeniedError) return 'This API key does not have access to that model.';
     if (err instanceof Anthropic.RateLimitError) return 'Rate limited — try again in a moment.';
     if (err instanceof Anthropic.BadRequestError) return `Request rejected: ${err.message}`;
     if (err instanceof Anthropic.APIConnectionError) return 'Could not reach the Claude API. Check your connection.';
     if (err instanceof Anthropic.APIError) return `Claude API error (${err.status}): ${err.message}`;
-    if (/auth|api.?key|credential/i.test(String(err && err.message))) return 'No API key set. Add one in Settings (⌘,).';
+    if (/auth|api.?key|credential/i.test(String(err && err.message))) return 'No API key set. Add one in Settings.';
     return String((err && err.message) || err);
   }
 
@@ -137,7 +137,7 @@ module.exports = function setupAi(M) {
     } catch (err) {
       throw new Error(`Could not reach your AI server (${server.url}). Is it running?`);
     }
-    if (res.status === 401 || res.status === 403) throw new Error('Your AI server rejected the access token. Check it in Settings (⌘,).');
+    if (res.status === 401 || res.status === 403) throw new Error('Your AI server rejected the access token. Check it in Settings.');
     if (res.status === 404) throw new Error(`Your AI server doesn’t have the model “${server.model}”. Pull it on the server or fix the name in Settings.`);
     if (!res.ok) throw new Error(`AI server error (${res.status}): ${(await res.text()).slice(0, 200)}`);
     return res;

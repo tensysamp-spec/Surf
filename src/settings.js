@@ -587,4 +587,4 @@ async function open(section = null) {
   win.focus();
 }
 
-ctx.settings = { get, set, open, close };
+ctx.settings = { get, set, open, close, isOpen: () => !!win && !win.closed };

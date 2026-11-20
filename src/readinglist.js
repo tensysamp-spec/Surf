@@ -141,7 +141,8 @@ function render(list, query) {
   const shown = items.filter((i) => (filter === 'all' || !i.read)
     && (!query || i.title.toLowerCase().includes(query) || i.url.toLowerCase().includes(query)));
   if (!shown.length) {
-    let message = 'Save pages to read later with ⇧⌘L, or “Add to reading list” in a tab’s menu.';
+    const keys = ctx.shortcuts.label('reading-list');
+    let message = `Save pages to read later${keys ? ` with ${keys}, or` : ' with'} “Add to reading list” in a tab’s menu.`;
     if (query) message = 'No matching pages.';
     else if (items.length) message = 'All caught up — nothing unread.';
     list.appendChild(U.el('div', 'history-empty', message));

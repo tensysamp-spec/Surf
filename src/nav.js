@@ -41,7 +41,7 @@ function update(syncUrl = false) {
 
   const loading = isWeb && tab.loading && !U.isNewTabUrl(tab.url);
   e.reload.classList.toggle('loading', loading);
-  e.reload.title = loading ? 'Stop loading' : 'Reload (⌘R)';
+  e.reload.title = loading ? 'Stop loading' : ctx.shortcuts.tip('Reload', 'reload');
 
   const url = tab ? tab.url : '';
   if (!isWeb) {

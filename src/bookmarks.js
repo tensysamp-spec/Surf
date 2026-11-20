@@ -474,7 +474,7 @@ function render(list, query) {
     return;
   }
   if (!root.children.length) {
-    return list.appendChild(U.el('div', 'history-empty', 'No bookmarks yet. Bookmark the page you’re on with the button above, by right-clicking the ★ in the address bar, or with “Bookmark this page” in the command bar (⌘T).'));
+    return list.appendChild(U.el('div', 'history-empty', `No bookmarks yet. Bookmark the page you’re on with the button above, by right-clicking the ★ in the address bar, or with ${ctx.shortcuts.tip('“Bookmark this page” in the command bar', 'new-tab')}.`));
   }
   const tree = U.el('div', 'bm-tree');
   renderTree(tree, root, 0);

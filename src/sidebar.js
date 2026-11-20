@@ -507,8 +507,8 @@ function entryMenu(entry, x, y) {
   const canSplit = entry.id !== T().activeEntryId && !T().displayed.includes(entry.id);
 
   U.contextMenu([
-    loc.section === 'today' && { label: 'Pin tab', icon: 'pin', hint: '⌘D', action: () => T().togglePin(entry.id) },
-    loc.section === 'pinned' && { label: 'Unpin tab', icon: 'pin', hint: '⌘D', action: () => T().togglePin(entry.id) },
+    loc.section === 'today' && { label: 'Pin tab', icon: 'pin', hint: ctx.shortcuts.label('toggle-pin'), action: () => T().togglePin(entry.id) },
+    loc.section === 'pinned' && { label: 'Unpin tab', icon: 'pin', hint: ctx.shortcuts.label('toggle-pin'), action: () => T().togglePin(entry.id) },
     loc.section !== 'today' && T().isWandered(entry) && { label: 'Back to pinned page', icon: 'undo', action: () => T().resetToHome(entry.id) },
     loc.section !== 'today' && T().isWandered(entry) && { label: 'Pin this page instead', icon: 'pin', action: () => T().rehome(entry.id) },
     isWeb && { label: loc.section === 'fav' ? 'Remove from favorites' : 'Add to favorites', icon: 'star', action: () => T().toggleFavorite(entry.id) },
@@ -519,7 +519,7 @@ function entryMenu(entry, x, y) {
     { separator: true },
     { label: 'Rename…', icon: 'edit', action: () => T().renameEntry(entry.id) },
     { label: 'Duplicate', icon: 'copy', action: () => T().duplicate(entry.id) },
-    isWeb && !U.isNewTabUrl(url) && { label: 'Add to reading list', icon: 'bookmark', hint: '⇧⌘L', action: () => ctx.readingList.addEntry(entry) },
+    isWeb && !U.isNewTabUrl(url) && { label: 'Add to reading list', icon: 'bookmark', hint: ctx.shortcuts.label('reading-list'), action: () => ctx.readingList.addEntry(entry) },
     isWeb && !U.isNewTabUrl(url) && { label: 'Copy URL', icon: 'link', action: () => { ipcRenderer.send('copy-text', url); U.toast('Copied URL'); } },
     tab && isWeb && { label: tab.muted ? 'Unmute tab' : 'Mute tab', icon: tab.muted ? 'volume' : 'mute', action: () => ctx.media.toggleMute(tab) },
     tab && isWeb && { label: 'Reload', icon: 'reload', action: () => tab.webview.reload() },
@@ -527,7 +527,7 @@ function entryMenu(entry, x, y) {
     otherSpaces.length && loc.section !== 'fav' && { separator: true },
     ...(loc.section !== 'fav' ? otherSpaces.map((s) => ({ label: `Move to ${s.name}`, icon: 'layers', action: () => T().moveToSpace(entry.id, s.id) })) : []),
     loc.section === 'today' && { separator: true },
-    loc.section === 'today' && { label: 'Close tab', icon: 'close', hint: '⌘W', danger: true, action: () => T().closeEntry(entry.id) },
+    loc.section === 'today' && { label: 'Close tab', icon: 'close', hint: ctx.shortcuts.label('close-tab'), danger: true, action: () => T().closeEntry(entry.id) },
   ].filter(Boolean), x, y);
 }
 
@@ -860,18 +860,18 @@ function saveSharePage(name, links) {
 
 function newTabMenu(x, y) {
   U.contextMenu([
-    { label: 'New tab', icon: 'plus', hint: '⌘T', action: () => ctx.command.open() },
-    { label: 'New split view', icon: 'split', hint: '⇧⌘D', action: () => T().splitActiveWithNewTab() },
+    { label: 'New tab', icon: 'plus', hint: ctx.shortcuts.label('new-tab'), action: () => ctx.command.open() },
+    { label: 'New split view', icon: 'split', hint: ctx.shortcuts.label('split-view'), action: () => T().splitActiveWithNewTab() },
     { label: 'New note', icon: 'note', action: () => ctx.internal.newNote() },
     { label: 'New easel', icon: 'easel', action: () => ctx.internal.newEasel() },
-    { label: 'New little window', icon: 'window', hint: '⌥⌘N', action: () => ipcRenderer.send('open-little-window') },
+    { label: 'New little window', icon: 'window', hint: ctx.shortcuts.label('little-window'), action: () => ipcRenderer.send('open-little-window') },
     { separator: true },
     { label: 'New folder', icon: 'folder', action: () => T().createFolder('today') },
     { label: 'New pinned folder', icon: 'folder', action: () => T().createFolder('pinned') },
     { label: 'New live folder…', icon: 'rss', action: () => ctx.liveFolders.create() },
     { label: 'Sort Today…', icon: 'layers', action: () => ctx.folders.todayMenu(x, y) },
     { separator: true },
-    !U.PRIVATE && { label: 'New private window', icon: 'mask', hint: '⇧⌘N', action: () => ipcRenderer.send('open-private-window') },
+    !U.PRIVATE && { label: 'New private window', icon: 'mask', hint: ctx.shortcuts.label('private-window'), action: () => ipcRenderer.send('open-private-window') },
   ].filter(Boolean), x, y);
 }
 
@@ -1049,7 +1049,8 @@ function setCompact(on) {
 function toggleCompact() {
   const on = !document.body.classList.contains('compact');
   setCompact(on);
-  U.toast(on ? `Compact mode — hover the ${isRight() ? 'right' : 'left'} edge for the sidebar (⌥⌘C to exit)` : 'Compact mode off');
+  const keys = ctx.shortcuts.label('compact');
+  U.toast(on ? `Compact mode — hover the ${isRight() ? 'right' : 'left'} edge for the sidebar${keys ? ` (${keys} to exit)` : ''}` : 'Compact mode off');
 }
 
 /* ------------------------------------------------------------------ */

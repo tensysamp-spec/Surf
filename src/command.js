@@ -45,7 +45,7 @@ function actions() {
     { title: 'Ask Claude (web search)', keywords: 'ask ai question web search claude', icon: 'sparkles', run: () => ctx.ai.openAssistant() },
     { title: 'Extensions', keywords: 'extensions addons plugins chrome', icon: 'layers', run: () => ctx.extensions.openPopover() },
     { title: 'Chrome Web Store', keywords: 'extensions store install add chrome web store addons', icon: 'layers', run: () => ctx.extensions.openStore() },
-    { title: 'Replay intro tour', keywords: 'intro tour welcome help tutorial onboarding guide', icon: 'sparkles', run: () => ctx.intro.start() },
+    { title: 'Replay intro tour', keywords: 'intro tour welcome help tutorial onboarding guide', lead: 'tour intro tutorial onboarding', icon: 'sparkles', run: () => ctx.intro.start() },
     { title: 'Import from another browser', keywords: 'import chrome safari bookmarks history arc brave edge', icon: 'download', run: () => ctx.settings.open('import') },
     { title: 'New private window', keywords: 'private incognito window', icon: 'mask', hint: K('private-window'), when: !U.PRIVATE, run: () => ipcRenderer.send('open-private-window') },
     { title: 'Compact mode', keywords: 'compact focus hide sidebar fullscreen zen', icon: 'maximize', hint: K('compact'), run: () => ctx.sidebar.toggleCompact() },
@@ -125,12 +125,18 @@ function suggestions(query) {
 
   if (mode === 'new' && q) {
     // Matching actions first — they're what makes the bar fast
+    // An action with `lead` words owns them: typing one ("tour") puts it above the web search
+    const leads = (a) => !!a.lead && needle.length >= 3 && a.lead.split(' ').some((w) => w.startsWith(needle));
     const matched = actions()
-      .map((a) => ({ a, s: Math.max(score(a.title, needle), score(a.keywords, needle)) }))
+      .map((a) => ({ a, s: Math.max(score(a.title, needle), score(a.keywords, needle)) + (leads(a) ? 10 : 0) }))
       .filter((x) => x.s > 0)
       .sort((x, y) => y.s - x.s)
       .slice(0, 4);
-    for (const { a } of matched) out.push({ kind: 'action', title: a.title, sub: 'Action', iconName: a.icon, hint: a.hint, run: a.run });
+    for (const { a } of matched) {
+      const item = { kind: 'action', title: a.title, sub: 'Action', iconName: a.icon, hint: a.hint, run: a.run };
+      if (leads(a)) out.unshift(item);
+      else out.push(item);
+    }
   }
 
   // Open tabs ("switch to tab")

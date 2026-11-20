@@ -9,8 +9,12 @@
 //             hidden are skipped, so a step for an optional feature is always safe.
 //   place     preferred side for the card: 'right' (default), 'left', 'top' or 'bottom'
 //   title     short heading
-//   text      one or two sentences; {⌘T} renders as keyboard keys
-//   tips      [[keys, label], …] rendered as a shortcut grid
+//   text      one or two sentences; {⌘T} renders as keyboard keys. {@action} shows the user's
+//             current shortcut for an action in main/shortcuts.js. Wrap a phrase as
+//             [with {@action}|without] to swap in the second part (or nothing) when the
+//             user has removed that shortcut.
+//   tips      [[keys, label], …] rendered as a shortcut grid; keys may be '@action' (the row
+//             is left out when the action has no shortcut)
 //   tryIt     { label, run(), isOpen() } — a button that opens the real UI. The tour steps
 //             aside while it's open and comes back when it closes. Never change user data.
 //   when()    optional extra condition for showing the step
@@ -32,21 +36,32 @@ const STEPS = [
     id: 'tabs',
     target: ['#today-zone', '#sidebar'],
     title: 'Your tabs live in the sidebar',
-    text: 'New tabs land under Today and quietly archive themselves once you stop using them. Show or hide the sidebar with {⌘S}.',
+    text: 'New tabs land under Today and quietly archive themselves once you stop using them.[ Show or hide the sidebar with {@toggle-sidebar}.]',
   },
   {
     id: 'command',
     target: '#new-tab-btn',
     title: 'One box for everything',
-    text: '{⌘T} opens the command bar: search, type an address, or run any command — try “split” or “summarize”.',
+    text: '[{@new-tab}|New Tab] opens the command bar: search, type an address, or run any command — try “split” or “summarize”.',
     tryIt: { label: 'Open the command bar', run: () => ctx.command.open(), isOpen: () => ctx.command.isOpen() },
   },
   {
+    id: 'find',
+    title: 'Find any tab',
+    text: '[{@tab-search} searches|“Search tabs” in the command bar looks through] every tab in every space, plus the archive and your history. More ways to get around:',
+    tips: [
+      ['⌃Tab', 'Flip through tabs as thumbnails (hold ⌃)'],
+      ['⇧-click', 'Peek at a link without leaving the page'],
+      ['@split-view', 'Split view — two pages side by side'],
+    ],
+    tryIt: { label: 'Search your tabs', run: () => ctx.tabSearch.open(), isOpen: () => ctx.tabSearch.isOpen() },
+  },
+  {
     id: 'pinned',
-    // With nothing pinned yet, point at the current tab instead: that's what ⌘D would pin
-    target: ['#sidebar.has-pinned #pinned-list', '#today-list .entry-row.active', '#today-list .entry-row'],
+    // With nothing pinned yet, point at the current tab instead: that's what pinning would take
+    target: ['#sidebar.has-pinned #pinned-list, #favorites.has-items #favorites-list', '#today-list .entry-row.active', '#today-list .entry-row'],
     title: 'Pin the sites you live in',
-    text: 'Press {⌘D} to pin a tab. Pinned tabs become square tiles that glow in the site’s color — wander off and the ↩ badge takes you back home.',
+    text: '[Press {@toggle-pin} to pin a tab|Right-click a tab and choose Pin tab]. Pinned tabs sit up top as cards tinted with the site’s color — wander off and the ↩ badge takes you back home. The ★ in the address bar makes a favorite that shows in every space.',
   },
   {
     id: 'spaces',
@@ -63,21 +78,11 @@ const STEPS = [
     },
   },
   {
-    id: 'move',
-    title: 'Get around quickly',
-    text: 'Three moves worth learning early:',
-    tips: [
-      ['⌃Tab', 'Flip through tabs as thumbnails (hold ⌃)'],
-      ['⇧-click', 'Peek at a link without leaving the page'],
-      ['⇧⌘D', 'Split view — two pages side by side'],
-    ],
-  },
-  {
     id: 'boosts',
     target: ['#boost-btn', '#omnibox'],
     place: 'bottom',
     title: 'Make any site yours',
-    text: 'Boosts restyle a site with your own colors, fonts or CSS, and zap the bits you don’t want. The wand sits in the address bar — jump there with {⌘L}.',
+    text: 'Boosts restyle a site with your own colors, fonts or CSS, and zap the bits you don’t want. The wand sits in the address bar[ — jump there with {@focus-url}].',
   },
   {
     id: 'shields',
@@ -92,19 +97,27 @@ const STEPS = [
     },
   },
   {
-    id: 'shelf-library',
+    id: 'library',
     target: '#shelf-btn, #library-btn',
     place: 'top',
-    title: 'Shelf and Library',
-    text: 'The shelf collects downloads, screenshots and anything you drop on it. The Library keeps history, archived tabs, notes and highlights — open it with {⌘Y}.',
-    tryIt: { label: 'Open the Library', run: () => ctx.library.open('history'), isOpen: () => ctx.library.isOpen() },
+    title: 'Save it for later',
+    text: '[{@reading-list}|“Add to reading list” in a tab’s menu] saves a page to read later. Your reading list lives in the Library with your bookmarks[ ({@bookmarks})], history and notes. The shelf beside it catches downloads and screenshots.',
+    tryIt: { label: 'Open your reading list', run: () => ctx.library.open('reading'), isOpen: () => ctx.library.isOpen() },
   },
   {
     id: 'assistant',
     target: '#assistant-btn',
     place: 'top',
     title: 'An assistant, if you want one',
-    text: 'Summarize a page, ask about it, or translate it. It’s optional: add your Anthropic API key in Settings {⌘,} to turn it on.',
+    text: 'Summarize a page, ask about it, or translate it. It’s optional: add your Anthropic API key in Settings to turn it on.',
+  },
+  {
+    id: 'settings',
+    target: '#settings-btn',
+    place: 'top',
+    title: 'Settings and profiles',
+    text: '[{@settings} opens|The gear opens] Settings in its own window — appearance, passwords, the assistant, and every keyboard shortcut. For a separate setup with its own logins and tabs, choose ' + (MAC ? 'Surf' : 'File') + ' → Open Profile in the menu bar.',
+    tryIt: { label: 'Open Settings', run: () => ctx.settings.open(), isOpen: () => ctx.settings.isOpen() },
   },
   {
     id: 'done',
@@ -112,11 +125,11 @@ const STEPS = [
     text: 'A few more things to try:',
     tips: [
       ['yt Tab', 'Search a site straight from the address bar'],
-      ['⇧⌘R', 'Reader view for clean articles'],
-      ['⇧⌘T', 'Bring back a tab you just closed'],
-      ['⌥⌘C', 'Compact mode — just the page'],
+      ['@reader', 'Reader view for clean articles'],
+      ['@reopen-closed', 'Bring back a tab you just closed'],
+      ['@compact', 'Compact mode — just the page'],
     ],
-    note: 'Replay this tour anytime from Settings → Welcome tour, or pick “Replay intro tour” in the command bar.',
+    note: 'Replay this tour anytime from Settings → Welcome tour, or type “tour” in the command bar.',
     next: 'Start browsing',
   },
 ];
@@ -256,10 +269,22 @@ function keyLabel(token) {
   return token.replace('⌘', 'Ctrl+').replace('⌥', 'Alt+').replace('⌃', 'Ctrl+').replace('⇧', 'Shift+');
 }
 
+// '@reader' -> the user's current keys for that action ('' when it has none); anything else as written
+const keysFor = (token) => (token.startsWith('@') ? ctx.shortcuts.label(token.slice(1)) : token);
+
+// "[… {@action} …|fallback]": keep the first part only when all its shortcuts are set
+function resolveText(text) {
+  return text.replace(/\[([^\]|]*)(?:\|([^\]]*))?\]/g, (_m, withKeys, without = '') => {
+    const actions = (withKeys.match(/\{@[^}]+\}/g) || []).map((t) => t.slice(1, -1));
+    return actions.every((a) => keysFor(a)) ? withKeys : without;
+  });
+}
+
 // "⇧⌘D" -> <kbd>⇧</kbd><kbd>⌘</kbd><kbd>D</kbd>; "⇧-click" -> <kbd>⇧</kbd> click
 function keys(combo) {
   const wrap = U.el('span', 'intro-keys');
-  const parts = combo.match(/[⌘⇧⌥⌃]|[^⌘⇧⌥⌃]+/g) || [];
+  // Elsewhere shortcuts read "Ctrl+Shift+T": one key cap per part
+  const parts = !MAC && /^(Ctrl|Alt|Shift)\+./.test(combo) ? combo.split(/\+(?=.)/) : combo.match(/[⌘⇧⌥⌃]|[^⌘⇧⌥⌃]+/g) || [];
   for (const part of parts) {
     const word = part.replace(/^-/, '');
     if (/^(click|Tab)$/.test(word.trim()) && part.startsWith('-')) wrap.appendChild(U.el('span', 'intro-key-word', word));
@@ -276,9 +301,10 @@ function keys(combo) {
 // Text with {⌘T}-style key tokens
 function richText(tag, className, text) {
   const node = U.el(tag, className);
-  text.split(/\{([^}]+)\}/).forEach((part, i) => {
+  resolveText(text).split(/\{([^}]+)\}/).forEach((part, i) => {
     if (!part) return;
-    node.appendChild(i % 2 ? keys(part) : document.createTextNode(part));
+    if (i % 2 === 0) node.appendChild(document.createTextNode(part));
+    else if (keysFor(part)) node.appendChild(keys(keysFor(part)));
   });
   return node;
 }
@@ -303,7 +329,9 @@ function render() {
   if (step.text) body.appendChild(richText('p', null, step.text));
   if (step.tips) {
     const grid = U.el('div', 'intro-tips');
-    for (const [combo, label] of step.tips) grid.append(keys(combo), U.el('span', null, label));
+    for (const [token, label] of step.tips) {
+      if (keysFor(token)) grid.append(keys(keysFor(token)), U.el('span', null, label));
+    }
     body.appendChild(grid);
   }
   if (step.tryIt && (!step.tryIt.when || step.tryIt.when())) {
@@ -404,6 +432,8 @@ function tryIt(action) {
   };
   state.observer = new MutationObserver(check);
   state.observer.observe(document.body, { childList: true, attributes: true, attributeFilter: ['class'] });
+  // Settings opens in its own window, which this window's DOM never hears about
+  state.poll = setInterval(check, 250);
   // If the thing never opened (or opens without touching the body), don't strand the user
   state.tryTimer = setTimeout(() => {
     if (!seen && !action.isOpen()) resume();
@@ -420,13 +450,12 @@ function resume() {
   if (!state || !state.suspended) return;
   state.observer.disconnect();
   clearTimeout(state.tryTimer);
+  clearInterval(state.poll);
   state.suspended = false;
   state.root.classList.remove('suspended');
   state.root.removeAttribute('aria-hidden');
-  state.layoutKey = null;
-  layout();
-  const next = state.card.querySelector('.intro-next');
-  if (next) next.focus({ preventScroll: true });
+  // Redraw rather than just re-place: the user may have changed a shortcut meanwhile
+  render();
 }
 
 /* ------------------------------------------------------------------ */
@@ -476,6 +505,8 @@ function finish() {
   cancelAnimationFrame(frame);
   if (observer) observer.disconnect();
   clearTimeout(state.tryTimer);
+  clearInterval(state.poll);
+  state.unsubscribe();
   clearTimeout(state.moveTimer);
   state = null;
   release();
@@ -525,6 +556,8 @@ function start() {
     restoreFocus: document.activeElement,
     layoutKey: null,
     suspended: false,
+    // Key labels follow the user's shortcuts, even when they change mid-tour
+    unsubscribe: ctx.shortcuts.onChange(() => state && !state.suspended && render()),
   };
   window.addEventListener('keydown', onKey, true);
   document.addEventListener('focusin', onFocusIn, true);

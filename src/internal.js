@@ -235,7 +235,7 @@ function easelView(id) {
   });
   const capture = U.el('button', 'chip');
   capture.append(U.icon('crop'), document.createTextNode(' Capture from tab'));
-  capture.title = 'Select an area of a web page to add (⇧⌘2)';
+  capture.title = ctx.shortcuts.tip('Select an area of a web page to add', 'capture');
   capture.addEventListener('click', () => {
     lastEaselId = id;
     U.store.set('browser.lastEasel', id);
@@ -335,7 +335,7 @@ function easelView(id) {
   }
 
   const emptyHint = U.el('div', 'easel-empty');
-  emptyHint.append(U.icon('easel'), U.el('p', null, 'Capture parts of web pages with ⇧⌘2, or add text. Drag things around to arrange them.'));
+  emptyHint.append(U.icon('easel'), U.el('p', null, `Capture parts of web pages with ${ctx.shortcuts.label('capture') || '“Capture to easel” in the command bar'}, or add text. Drag things around to arrange them.`));
   const updateEmpty = () => { emptyHint.hidden = easel.items.length > 0; };
 
   easel.items.forEach(renderItem);
