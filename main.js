@@ -97,6 +97,9 @@ require('./main/media')(M);
 const profiles = require('./main/profiles')(M);
 require('./main/pdf')(M);
 const spaceFiles = require('./main/spaces')(M);
+require('./main/cleardata')(M);
+const recovery = require('./main/recovery')(M);
+require('./main/siteinfo')(M);
 
 /* ------------------------------------------------------------------ */
 /* Misc IPC                                                            */
@@ -337,6 +340,7 @@ function createBrowserWindow({ query = {}, bounds = {}, background = '#f3f1f8' }
     },
   });
   browserWindows.add(win);
+  recovery.watchWindow(win);
   win.loadFile(path.join(__dirname, 'index.html'), { query });
   // The browser UI itself never navigates away (e.g. a dropped link)
   win.webContents.on('will-navigate', (e) => e.preventDefault());
@@ -494,6 +498,10 @@ app.on('web-contents-created', (_event, contents) => {
         win.close();
       } else if (action === 'settings') {
         event.preventDefault();
+      } else if (action === 'clear-data') {
+        // The owning window draws the dialog into this Settings window (it has focus)
+        event.preventDefault();
+        sendToWindow(settingsWindows.get(win), 'shortcut', action);
       }
       return;
     }
@@ -506,6 +514,9 @@ app.on('web-contents-created', (_event, contents) => {
     } else if (action === 'private-window') {
       event.preventDefault();
       createPrivateWindow();
+    } else if (action === 'reopen-window') {
+      event.preventDefault();
+      M.focusMain();
     } else if (isBrowserWindow(win)) {
       event.preventDefault();
       sendToWindow(win, 'shortcut', action);
@@ -586,6 +597,12 @@ function buildMenu() {
         { role: 'about' },
         { type: 'separator' },
         { label: 'Settings…', ...accel('settings'), click: () => sendShortcut('settings') },
+        // From a Settings window, the window that owns it (it draws the dialog into Settings)
+        { label: 'Clear Browsing Data…', ...accel('clear-data'), click: () => {
+          const owner = settingsWindows.get(BrowserWindow.getFocusedWindow());
+          if (owner) sendToWindow(owner, 'shortcut', 'clear-data');
+          else sendShortcut('clear-data');
+        } },
         profileMenu,
         { type: 'separator' },
         { role: 'services' },
@@ -602,6 +619,8 @@ function buildMenu() {
       submenu: [
         { label: 'New Private Window', ...accel('private-window'), click: () => createPrivateWindow() },
         { label: 'New Little Window', ...accel('little-window'), click: () => createMiniWindow() },
+        // Also registered as a real accelerator, so it works with no window open
+        { label: 'Reopen Closed Window', accelerator: accel('reopen-window').accelerator, click: () => M.focusMain() },
         { type: 'separator' },
         { label: 'Import Space…', click: () => spaceFiles.requestImport() },
         { type: 'separator' },
@@ -641,6 +660,7 @@ require('./main/updates')(M, features);
 app.whenReady().then(() => {
   // The packaged app gets its icon from the bundle; when run with `npm start`, set it here
   if (!app.isPackaged && app.dock) app.dock.setIcon(path.join(__dirname, 'build', 'icon.png'));
+  recovery.start();
   sessions.configureAll();
   buildMenu();
 

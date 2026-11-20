@@ -236,6 +236,7 @@ function ensureLive(entry) {
     ctx.autofill.bindTab(tab);
     ctx.highlights.bindTab(tab);
     ctx.media.bindTab(tab);
+    ctx.recovery.bindTab(tab);
   } else {
     const view = ctx.internal.createView(entry);
     tab = {
@@ -1166,6 +1167,7 @@ ctx.tabs = {
   captureThumb,
   boot,
   save,
+  saveNow,
   // state
   get spaces() { return spaces; },
   get favorites() { return favorites; },

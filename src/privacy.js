@@ -25,6 +25,7 @@ async function openPopover() {
     closePopover();
     return;
   }
+  ctx.siteInfo.closePopover();
   const tab = ctx.tabs.activeTab();
   const isWeb = tab && tab.kind === 'web' && /^https?:/i.test(tab.url || '');
   const host = isWeb ? U.hostOf(tab.url).replace(/^www\./, '') : null;

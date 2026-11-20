@@ -77,6 +77,40 @@ async function clearHistory() {
   U.toast('History cleared');
 }
 
+// Clear browsing data: drop history, finished downloads (the list, not the files) and
+// archived tabs from `since` on (0 = everything); returns how many of each were removed
+function clearSince(since, { history: h, downloads: d, archive: a }) {
+  const out = { history: 0, downloads: 0, archive: 0 };
+  if (h) {
+    const keep = history.filter((x) => x.time < since);
+    out.history = history.length - keep.length;
+    history = keep;
+    U.store.set(HISTORY_KEY, history);
+  }
+  if (d) {
+    const keep = downloads.filter((x) => x.state === 'progressing' || (x.startTime || 0) < since);
+    out.downloads = downloads.length - keep.length;
+    downloads = keep;
+    saveDownloads();
+  }
+  if (a) {
+    const keep = T().archive.filter((x) => (x.archivedAt || 0) < since);
+    out.archive = T().archive.length - keep.length;
+    if (out.archive) T().archive = keep;
+  }
+  if (isOpen()) render();
+  return out;
+}
+
+// What clearSince would remove, for the dialog's counts
+function countSince(since) {
+  return {
+    history: history.filter((x) => x.time >= since).length,
+    downloads: downloads.filter((x) => x.state !== 'progressing' && (x.startTime || 0) >= since).length,
+    archive: T().archive.filter((x) => (x.archivedAt || 0) >= since).length,
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* Downloads                                                           */
 /* ------------------------------------------------------------------ */
@@ -470,6 +504,8 @@ function refresh() {
 
 ctx.library = {
   setup, open, close, toggle, isOpen, refresh, addHistory, updateHistory, clearHistory, importHistory,
+  clearSince, countSince,
   history: () => history,
   downloads: () => downloads, downloadStatus, downloadControls, downloadShape, patchDownloadRow,
+  current: () => current,
 };

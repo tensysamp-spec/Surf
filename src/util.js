@@ -40,6 +40,7 @@ const store = {
     }
     try {
       localStorage.setItem(key, JSON.stringify(value, SLIM_KEYS.has(key) ? slimFavicons : undefined));
+      if (store.onWrite) store.onWrite(key);
     } catch (err) {
       console.error('Could not save', key, err);
       if (isQuotaError(err)) warnStorageFull();
@@ -459,12 +460,14 @@ function contextMenu(items, x, y) {
 /* Prompt / confirm dialog (window.prompt is not supported in Electron) */
 /* ------------------------------------------------------------------ */
 
-function dialog({ title, message, value, placeholder, confirmLabel = 'OK', danger = false, input = true }) {
+// content: an optional element shown below the message (e.g. a form; the dialog then resolves true)
+function dialog({ title, message, value, placeholder, confirmLabel = 'OK', danger = false, input = true, content = null, className = '' }) {
   return new Promise((resolve) => {
     const backdrop = el('div', 'dialog-backdrop');
-    const box = el('form', 'dialog');
+    const box = el('form', 'dialog' + (className ? ` ${className}` : ''));
     box.appendChild(el('h3', null, title));
     if (message) box.appendChild(el('p', null, message));
+    if (content) box.appendChild(content);
     let field = null;
     if (input) {
       field = el('input', 'dialog-input');

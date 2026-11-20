@@ -45,10 +45,13 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 
 **Privacy and security**
 - Shields block ads and trackers, with a privacy report
+- Site info: click the lock in the address bar for the connection and certificate, camera, microphone, location and notification permissions, Shields, zoom, Boost, and the site's cookies (with Clear); Settings → Site settings lists every site with an exception and resets it
 - Cookie banners from the big consent platforms are hidden and rejected where possible (never accepted); off per site from the shield
 - HTTPS-only mode, fingerprinting protection (on in private windows by default) and Global Privacy Control, in Settings → Privacy
 - Private windows
 - Spaces with separate logins keep them everywhere: little windows opened from their links, page summaries and icon fetches use the space's own cookie jar
+- Crash recovery: tabs, scroll positions and the open Library come back after a crash, and a crashed page shows a Reload button
+- Clear browsing data (⇧⌘⌫, Surf → Clear Browsing Data…, the command bar, or Settings → Privacy): history, archived tabs, the downloads list, cookies and site data, the cache and site permissions, for the last hour, day, week or all time
 - Password manager encrypted with the macOS Keychain, with CSV import from Chrome, Safari and Firefox and export
 - Address and card autofill (cards fill only on https pages; security codes are never saved)
 
@@ -113,6 +116,7 @@ These are the defaults; change any of them in Settings → Keyboard shortcuts.
 | ⇧ over a link | AI link preview |
 | Two-finger swipe | Back / forward (on the sidebar: switch space) |
 | ⇧⌘N | Private window |
+| ⌥⇧⌘T | Reopen closed window |
 | ⌥⌘C | Compact mode |
 | ⇧⌘S | Screenshot |
 | ⌥⌘I | Page DevTools |
@@ -120,6 +124,7 @@ These are the defaults; change any of them in Settings → Keyboard shortcuts.
 | Right-drag ← → ↓ ↓→ | Gestures: back, forward, new tab, close |
 | ⌘Y | History |
 | ⇧⌘J | Downloads |
+| ⇧⌘⌫ | Clear browsing data |
 | ⇧⌘L | Add to reading list |
 | ⌘, | Settings |
 | ⇧-click | Open link in Peek |

@@ -162,7 +162,12 @@ module.exports = function setupSessions(M) {
     }
     return sitePermissions;
   }
-  const savePermissions = () => fs.promises.writeFile(permissionsFile(), JSON.stringify(sitePermissions)).catch(() => {});
+  // One write at a time: overlapping writeFile calls can interleave and corrupt the file
+  let permissionsWrite = Promise.resolve();
+  const savePermissions = () => {
+    permissionsWrite = permissionsWrite.then(() => fs.promises.writeFile(permissionsFile(), JSON.stringify(sitePermissions))).catch(() => {});
+    return permissionsWrite;
+  };
 
   function permissionKey(origin, permission, details) {
     const kind = permission === 'media' ? `media:${(details.mediaTypes || []).slice().sort().join('+') || 'av'}` : permission;
@@ -181,10 +186,10 @@ module.exports = function setupSessions(M) {
         return callback(false);
       }
       const key = permissionKey(origin, permission, details);
-      const saved = loadPermissions()[key];
+      const saved = savedChoice(ses, key);
       if (saved !== undefined) return callback(saved);
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      pending.set(id, { callback, key, remember });
+      pending.set(id, { callback, key, remember, ses });
       M.sendToOwner(contents, 'permission-request', { id, origin, permission, mediaTypes: details.mediaTypes || [] });
     });
 
@@ -192,7 +197,7 @@ module.exports = function setupSessions(M) {
       if (!contents || contents.getType() !== 'webview') return true;
       if (ALWAYS_ALLOW.has(permission)) return true;
       if (!ASKABLE.has(permission)) return false;
-      return loadPermissions()[permissionKey(requestingOrigin, permission, { mediaTypes: details && details.mediaType ? [details.mediaType] : [] })] === true;
+      return savedChoice(ses, permissionKey(requestingOrigin, permission, { mediaTypes: details && details.mediaType ? [details.mediaType] : [] })) === true;
     });
   }
 
@@ -200,19 +205,114 @@ module.exports = function setupSessions(M) {
     const request = pending.get(id);
     if (!request) return;
     pending.delete(id);
-    // Private windows never remember choices
+    // Private windows never save choices to disk…
     if (remember && request.remember) {
       loadPermissions()[request.key] = !!allow;
       savePermissions();
+    } else if (remember) {
+      // …but keep them until the private window closes
+      sessionPermissions(request.ses)[request.key] = !!allow;
     }
     request.callback(!!allow);
   });
-  ipcMain.handle('permissions-reset', () => {
+  // A private window's own session (its choices live only in memory), else null
+  const privateSessionOf = (sender) => {
+    const ses = M.sessionFor(sender);
+    return ses && !ses.isPersistent() ? ses : null;
+  };
+  ipcMain.handle('permissions-reset', (event) => {
+    const ses = privateSessionOf(event.sender);
+    if (ses) {
+      memoryPermissions.set(ses, {});
+      return true;
+    }
     sitePermissions = {};
     savePermissions();
     return true;
   });
-  ipcMain.handle('permissions-count', () => Object.keys(loadPermissions()).length);
+  ipcMain.handle('permissions-count', (event) => {
+    const ses = privateSessionOf(event.sender);
+    return Object.keys(ses ? sessionPermissions(ses) : loadPermissions()).length;
+  });
+
+  /* ---------------------------------------------------------------- */
+  /* Per-site permissions (site info popover, Settings → Site settings) */
+  /* ---------------------------------------------------------------- */
+
+  // Choices made in a private window live only in memory, per session
+  const memoryPermissions = new WeakMap();
+  function sessionPermissions(ses) {
+    if (!memoryPermissions.has(ses)) memoryPermissions.set(ses, {});
+    return memoryPermissions.get(ses);
+  }
+  const storeFor = (ses) => (ses && !ses.isPersistent() ? sessionPermissions(ses) : loadPermissions());
+
+  // Every saved choice that applies to a session (a private one adds its own)
+  const choicesFor = (ses) => ({ ...loadPermissions(), ...(ses && !ses.isPersistent() ? sessionPermissions(ses) : {}) });
+
+  // A camera+mic request with no saved combined choice follows the separate camera/mic choices
+  function savedChoice(ses, key) {
+    const store = choicesFor(ses);
+    if (store[key] !== undefined) return store[key];
+    const m = key.match(/^(.*)\|media:(.+\+.+)$/);
+    if (!m) return undefined;
+    const parts = m[2].split('+').map((type) => store[`${m[1]}|media:${type}`]);
+    if (parts.some((v) => v === false)) return false;
+    return parts.every((v) => v === true) ? true : undefined;
+  }
+
+  const SITE_KINDS = { camera: 'media:video', microphone: 'media:audio', location: 'geolocation', notifications: 'notifications' };
+  const sessionOf = (id) => {
+    const contents = id != null ? webContents.fromId(id) : null;
+    return contents && !contents.isDestroyed() ? contents.session : session.defaultSession;
+  };
+
+  // origin -> { camera: true|false|undefined, … }; undefined means "ask"
+  ipcMain.handle('permissions-site-get', (_event, { origin, webContentsId }) => {
+    const store = choicesFor(sessionOf(webContentsId));
+    const result = {};
+    for (const [name, kind] of Object.entries(SITE_KINDS)) {
+      // Camera or mic alone falls back to a choice saved for both together (not the other way round)
+      let value = store[`${origin}|${kind}`];
+      if (value === undefined && kind.startsWith('media:')) value = store[`${origin}|media:audio+video`];
+      result[name] = value;
+    }
+    return result;
+  });
+  ipcMain.handle('permissions-site-set', (_event, { origin, name, value, webContentsId }) => {
+    const kind = SITE_KINDS[name];
+    if (!kind) return false;
+    const ses = sessionOf(webContentsId);
+    const store = storeFor(ses);
+    // Split a saved camera+mic choice so changing one keeps the other
+    const both = `${origin}|media:audio+video`;
+    if (kind.startsWith('media:') && store[both] !== undefined) {
+      for (const k of ['media:audio', 'media:video']) if (store[`${origin}|${k}`] === undefined) store[`${origin}|${k}`] = store[both];
+      delete store[both];
+    }
+    if (value === true || value === false) store[`${origin}|${kind}`] = value;
+    else delete store[`${origin}|${kind}`];
+    if (store === sitePermissions) savePermissions();
+    return true;
+  });
+  // [{ origin, kind, allow }] for every saved choice (private windows: theirs too)
+  // (no webContentsId: the asking window's own session)
+  ipcMain.handle('permissions-list', (event, webContentsId) => {
+    const ses = webContentsId != null ? sessionOf(webContentsId) : M.sessionFor(event.sender);
+    const all = choicesFor(ses);
+    return Object.entries(all).map(([key, allow]) => {
+      const i = key.lastIndexOf('|');
+      return { origin: key.slice(0, i), kind: key.slice(i + 1), allow };
+    });
+  });
+  ipcMain.handle('permissions-site-clear', (event, { origin, webContentsId }) => {
+    const ses = webContentsId != null ? sessionOf(webContentsId) : M.sessionFor(event.sender);
+    const stores = [loadPermissions(), ...(ses && !ses.isPersistent() ? [sessionPermissions(ses)] : [])];
+    for (const store of stores) for (const key of Object.keys(store)) if (key.startsWith(`${origin}|`)) delete store[key];
+    savePermissions();
+    return true;
+  });
+  ipcMain.handle('shields-site-list', () => [...disabledHosts]);
 
   /* ---------------------------------------------------------------- */
   /* Apply to every session (default, Space profiles, private)        */

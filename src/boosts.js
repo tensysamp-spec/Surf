@@ -285,4 +285,4 @@ function togglePanel() {
   else openPanel();
 }
 
-ctx.boosts = { apply, isActiveFor, openPanel, closePanel, togglePanel, zap };
+ctx.boosts = { apply, boostFor, isActiveFor, openPanel, closePanel, togglePanel, zap };

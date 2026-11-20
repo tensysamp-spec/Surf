@@ -14,6 +14,11 @@ let lastEaselId = U.store.get('browser.lastEasel', null);
 const saveNotes = () => U.store.set(NOTES_KEY, notes);
 const saveEasels = () => U.store.set(EASELS_KEY, easels);
 
+// The last keystrokes in a note are saved after a short pause; don't lose them when the
+// window closes during that pause
+let pendingNoteSave = null;
+window.addEventListener('beforeunload', () => pendingNoteSave && pendingNoteSave());
+
 function allDocs() {
   return [
     ...Object.values(notes).map((n) => ({ kind: 'note', id: n.id, title: n.title, updated: n.updated })),
@@ -149,15 +154,19 @@ function noteView(id) {
   toolbar.appendChild(meta);
 
   let timer = null;
+  const write = () => {
+    clearTimeout(timer);
+    if (pendingNoteSave === write) pendingNoteSave = null;
+    note.title = title.value.trim();
+    note.html = U.sanitizeHtml(body.innerHTML);
+    note.updated = Date.now();
+    saveNotes();
+    meta.textContent = 'Saved';
+  };
   const persist = () => {
     clearTimeout(timer);
-    timer = setTimeout(() => {
-      note.title = title.value.trim();
-      note.html = U.sanitizeHtml(body.innerHTML);
-      note.updated = Date.now();
-      saveNotes();
-      meta.textContent = 'Saved';
-    }, 300);
+    timer = setTimeout(write, 300);
+    pendingNoteSave = write;
     meta.textContent = 'Editing…';
   };
 

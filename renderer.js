@@ -36,10 +36,13 @@ require('./src/passwords');
 require('./src/autofill');
 require('./src/readinglist');
 require('./src/privacy');
+require('./src/cleardata');
+require('./src/siteinfo');
 require('./src/intro');
 require('./src/updates');
 require('./src/pdf-annotate');
 require('./src/spaceshare');
+require('./src/recovery');
 
 /* ------------------------------------------------------------------ */
 /* Main-process events                                                 */
@@ -128,6 +131,7 @@ const SHORTCUTS = {
   compact: () => ctx.sidebar.toggleCompact(),
   devtools: () => ctx.page.openDevTools(),
   screenshot: () => ctx.screenshot.menu(),
+  'clear-data': () => ctx.clearData.open(),
 };
 
 ipcRenderer.on('shortcut', (_e, action) => {
@@ -160,6 +164,7 @@ ctx.bookmarks.setup();
 ctx.profiles.setup();
 ctx.updates.setup();
 ctx.spaceShare.setup();
+ctx.siteInfo.setup();
 
 // Air Traffic Control: a link from another app routed to a Space
 ipcRenderer.on('open-in-space', (_e, { url, spaceId }) => {
@@ -194,6 +199,7 @@ if (U.PRIVATE) {
 ipcRenderer.on('shift-key', () => ctx.ai.linkPreview());
 ctx.tabs.boot();
 ctx.intro.maybeShowFirstRun();
+ctx.recovery.setup();
 
 U.$('settings-btn').addEventListener('click', () => ctx.settings.open());
 U.$('profile-chip').addEventListener('click', () => ctx.settings.open('profiles'));

@@ -3812,3 +3812,56 @@ body.dark .folder.tinted > .folder-row:hover { background: color-mix(in srgb, va
 .dialog .ss-check input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
 .dialog .ss-check:has(input:disabled) { color: var(--text-faint); cursor: default; }
 .dialog p.ss-hint { color: var(--text-faint); font-size: 11.5px; }
+
+/* ------------------------------------------------------------------ */
+/* Clear browsing data dialog (src/cleardata.js)                       */
+/* ------------------------------------------------------------------ */
+.cd-dialog { width: min(420px, calc(100vw - 32px)); }
+.cd-body { display: flex; flex-direction: column; gap: 10px; }
+.cd-range { margin: 0; }
+.cd-range button { white-space: nowrap; }
+.cd-list {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border-radius: var(--radius);
+  background: var(--glass-1);
+}
+.cd-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  cursor: default;
+  transition: background var(--t-fast);
+}
+.cd-row:hover { background: var(--glass-1); }
+.cd-row input { flex: none; width: 15px; height: 15px; margin: 1px 0 0; accent-color: var(--accent); }
+.cd-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cd-text span { font-size: 13px; }
+.cd-text small { color: var(--text-faint); font-size: 11.5px; line-height: 1.35; }
+.cd-row.disabled span { color: var(--text-faint); }
+.dialog p.cd-note { color: var(--text-faint); font-size: 11.5px; }
+
+/* ------------------------------------------------------------------ */
+/* Site info popover (lock icon) + Settings → Site settings            */
+/* ------------------------------------------------------------------ */
+#security-icon:not([data-state="search"]) { cursor: pointer; border-radius: 5px; margin: -3px; padding: 3px; }
+#security-icon:not([data-state="search"]):hover { background: var(--glass-2); color: var(--text); }
+.siteinfo-popover { width: 320px; overflow-y: auto; }
+.siteinfo-popover .popover-title svg { width: 15px; height: 15px; }
+.siteinfo-conn { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; margin-bottom: 4px; border-radius: var(--radius-sm); background: var(--glass-1); }
+.siteinfo-conn strong { font-weight: 600; }
+.siteinfo-conn.secure strong { color: var(--success); }
+.siteinfo-conn.insecure strong { color: var(--warning); }
+.siteinfo-conn small { color: var(--text-faint); font-size: 11.5px; line-height: 1.4; }
+.siteinfo-row { gap: 10px; padding: 7px 0; }
+.siteinfo-row > svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--text-dim); }
+.siteinfo-row .settings-label { flex: 1; min-width: 0; }
+.siteinfo-row:last-of-type { border-bottom: none; }
+.siteinfo-select { height: 26px; font-size: 12px; }
+.siteinfo-zoom { display: flex; align-items: center; gap: 4px; }
+.siteinfo-zoom .chip { min-width: 26px; justify-content: center; }
+.siteinfo-pct { min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; }
+.siteinfo-footer { justify-content: space-between; }
