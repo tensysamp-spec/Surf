@@ -67,6 +67,15 @@ npm run package
 
 This builds `dist/mac-arm64/Surf.app`, which can be copied to `/Applications`. The build is for Apple Silicon only and is unsigned, so on other Macs open it the first time with right-click → Open.
 
+## Tests
+
+```sh
+npm test               # unit tests (Node's built-in runner, no Electron needed)
+node test/smoke.mjs    # smoke test: starts Surf and clicks around
+```
+
+The unit tests in `test/*.test.js` cover the pure logic: CSV import/export, shortcut combos, address bar input, autofill field matching, bookmarks.html export and tab model helpers. The smoke test launches Electron with a throwaway profile and a debugging port (`SMOKE_PORT`, default 9450), waits for the window, opens and closes the command bar and Settings, reads a bookmarks.html file back in the real parser, and fails on any exception in the window. It needs a display, so it isn't part of `npm test`.
+
 ## Keyboard shortcuts
 
 These are the defaults; change any of them in Settings → Keyboard shortcuts.

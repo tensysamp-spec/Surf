@@ -4,7 +4,7 @@
   "description": "A desktop web browser for macOS",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test test/",
     "start": "electron .",
     "package": "electron-builder --mac --dir && codesign --force --deep --sign - dist/mac*/Surf.app"
   },
