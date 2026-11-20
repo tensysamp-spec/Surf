@@ -3376,3 +3376,65 @@ body.settings-window .settings-hint { font-size: 12px; }
 /* The space name row above the pinned tiles is hidden; the space buttons at the bottom of the
    sidebar show which space you're in and open the space menu (rename, color, icon…) */
 #space-title { display: none; }
+
+/* ------------------------------------------------------------------ */
+/* Pinned tiles and favorites, Arc / Zen style: wide rounded cards     */
+/* with a quiet tint of the site's color; the open one is a white card */
+/* ------------------------------------------------------------------ */
+
+.pinned-grid,
+#favorites-list {
+  grid-template-columns: repeat(auto-fill, minmax(66px, 1fr));
+  gap: 8px;
+}
+.pinned-grid { padding: 2px 0 10px; }
+.pinned-tile,
+.favorite {
+  aspect-ratio: auto;
+  height: 50px;
+  border-radius: 12px;
+  background: var(--white-1);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
+}
+/* The tint: a soft wash of the site color rising from the bottom of the card */
+.pinned-tile::before,
+.favorite::before {
+  inset: 0;
+  border-radius: inherit;
+  filter: none;
+  transform: none;
+  background: radial-gradient(130% 120% at 50% 130%, var(--site, transparent) 0%, transparent 70%);
+}
+.has-site.pinned-tile::before, .has-site.favorite::before { opacity: 0.2; }
+.has-site.pinned-tile:hover::before, .has-site.favorite:hover::before { opacity: 0.3; transform: none; }
+.has-site.pinned-tile.active::before, .has-site.favorite.active::before { opacity: 0.16; transform: none; }
+.has-site.pinned-tile, .has-site.favorite {
+  background: color-mix(in srgb, var(--site) 7%, var(--white-1));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--site) 14%, transparent);
+}
+.pinned-tile:hover, .favorite:hover { background: var(--white-2); transform: none; }
+.has-site.pinned-tile:hover, .has-site.favorite:hover { background: color-mix(in srgb, var(--site) 11%, var(--white-2)); }
+.pinned-tile:active, .favorite:active { transform: scale(0.96); }
+.pinned-tile.active, .favorite.active,
+.has-site.pinned-tile.active, .has-site.favorite.active {
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(20, 16, 40, 0.08), 0 6px 16px -8px color-mix(in srgb, var(--site, #14102a) 50%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--site, var(--text)) 16%, transparent);
+}
+body.dark .has-site.pinned-tile, body.dark .has-site.favorite { background: color-mix(in srgb, var(--site) 11%, var(--white-1)); }
+body.dark .pinned-tile.active, body.dark .favorite.active,
+body.dark .has-site.pinned-tile.active, body.dark .has-site.favorite.active {
+  background: color-mix(in srgb, var(--site, transparent) 10%, var(--surface));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 0 0 1px color-mix(in srgb, var(--site, #fff) 22%, transparent);
+}
+.tile-icon img, .favorite img { width: 22px; height: 22px; border-radius: 6px; }
+.tile-icon svg, .favorite svg { width: 18px; height: 18px; }
+.pinned-tile:hover .tile-icon img { transform: scale(1.06); }
+/* Open-but-not-shown dot sits low and small, like Arc */
+.pinned-tile:not(.unloaded):not(.active)::after { bottom: 5px; width: 4px; height: 4px; opacity: 0.7; }
+/* Badges sit inside the card's corner instead of hanging off it */
+.tile-badge { top: 4px; right: 4px; width: 17px; height: 17px; }
+/* Favorites and pinned read as two groups */
+#favorites.has-items { padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+@media (prefers-reduced-motion: reduce) {
+  .pinned-tile:active, .favorite:active { transform: none; }
+}
