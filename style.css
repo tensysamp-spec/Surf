@@ -3372,3 +3372,7 @@ body.settings-window .settings-hint { font-size: 12px; }
 #library-tabs { overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
 #library-tabs::-webkit-scrollbar { display: none; }
 #library-tabs button { flex: 0 0 auto; padding: 0 10px; }
+
+/* The space name row above the pinned tiles is hidden; the space buttons at the bottom of the
+   sidebar show which space you're in and open the space menu (rename, color, icon…) */
+#space-title { display: none; }
