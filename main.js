@@ -79,6 +79,7 @@ const ai = require('./main/ai')(M);
 const tools = require('./main/tools')(M);
 require('./main/autofill')(M);
 const profiles = require('./main/profiles')(M);
+require('./main/pdf')(M);
 
 /* ------------------------------------------------------------------ */
 /* Misc IPC                                                            */

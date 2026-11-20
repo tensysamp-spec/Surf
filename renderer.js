@@ -35,6 +35,7 @@ require('./src/autofill');
 require('./src/readinglist');
 require('./src/privacy');
 require('./src/intro');
+require('./src/pdf-annotate');
 
 /* ------------------------------------------------------------------ */
 /* Main-process events                                                 */

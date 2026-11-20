@@ -35,6 +35,7 @@ function actions() {
     { title: 'Keyboard shortcuts', keywords: 'keyboard shortcuts keys hotkeys customize remap', icon: 'keyboard', run: () => ctx.settings.open('shortcuts') },
     { title: 'Summarize this page', keywords: 'ai summary summarize tldr claude', icon: 'sparkles', when: isWeb, run: () => ctx.ai.summarizePage() },
     { title: 'Ask about this page', keywords: 'ai ask question chat claude assistant', icon: 'sparkles', when: isWeb, run: () => ctx.ai.openAssistant() },
+    { title: 'Annotate PDF', keywords: 'pdf annotate highlight sign signature draw ink note form fill edit', icon: 'edit', when: ctx.pdfAnnotate.isPdf(tab), run: () => ctx.pdfAnnotate.open() },
     { title: 'Reader view', keywords: 'reader read article clean distraction', icon: 'note', hint: K('reader'), when: isWeb, run: () => ctx.reader.toggle() },
     { title: 'Translate page', keywords: 'translate language ai', icon: 'globe', when: isWeb, run: () => ctx.ai.translatePage() },
     { title: 'Ask Claude (web search)', keywords: 'ask ai question web search claude', icon: 'sparkles', run: () => ctx.ai.openAssistant() },

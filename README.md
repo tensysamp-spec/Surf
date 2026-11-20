@@ -29,6 +29,7 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 - Little windows for links opened from other apps
 - Reading list in the Library (⇧⌘L, or from a tab's menu or the command bar)
 - Reader view, read aloud, find in page, zoom, and swipe and mouse gestures
+- PDFs: fill in forms in the built-in viewer and save them with Download → With your changes (lands in Downloads like any download); or Annotate PDF (the PDF button in the address bar, or the command bar) to highlight text, add notes, draw, place a saved signature and fill forms, then Save a copy… as a new PDF. Tools: V select/move, H highlight, T note, D draw, S sign, ⌫ delete, ⌘Z / ⇧⌘Z undo/redo
 - Web panels: small web apps docked beside the page
 - Media controls in the sidebar for tabs playing audio or video
 

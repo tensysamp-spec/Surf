@@ -192,7 +192,7 @@ function clearError(tab) {
 // Overlays follow their tab's position (needed for split view)
 function syncOverlays() {
   for (const tab of T().live.values()) {
-    for (const overlay of [tab.errorEl, tab.readerEl]) {
+    for (const overlay of [tab.errorEl, tab.readerEl, tab.pdfEl]) {
       if (!overlay) continue;
       overlay.hidden = !tab.view.classList.contains('active');
       overlay.style.left = tab.view.style.left || '0';
