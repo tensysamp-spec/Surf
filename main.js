@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, clipboard, screen, session } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, clipboard, screen, session, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -19,6 +19,7 @@ const shortcuts = require('./main/shortcuts');
 
 let mainWindow = null;
 const browserWindows = new Set(); // main + private windows (full browser UI)
+const settingsWindows = new Map(); // Settings window -> the browser window that owns it
 const miniWindows = new Set();
 const escapeCaptured = new Map(); // window id -> bool
 let privateCount = 0;
@@ -315,7 +316,32 @@ function createBrowserWindow({ query = {}, bounds = {}, background = '#f3f1f8' }
   win.loadFile(path.join(__dirname, 'index.html'), { query });
   // The browser UI itself never navigates away (e.g. a dropped link)
   win.webContents.on('will-navigate', (e) => e.preventDefault());
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  // The browser UI opens nothing itself, except its Settings window (drawn into by the browser
+  // window's own code, like a native preferences window)
+  win.webContents.setWindowOpenHandler(({ url, frameName }) => {
+    if (frameName !== 'surf-settings' || url !== 'about:blank') return { action: 'deny' };
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        width: 880,
+        height: 660,
+        minWidth: 680,
+        minHeight: 480,
+        title: 'Settings',
+        titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+        trafficLightPosition: { x: 18, y: 20 },
+        backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1d23' : '#f7f6f2',
+        fullscreenable: false,
+        // No Node of its own: its code runs in the browser window, and a Node-enabled window
+        // would get a separate process the browser window couldn't draw into
+        webPreferences: { nodeIntegration: false, contextIsolation: false, sandbox: false },
+      },
+    };
+  });
+  win.webContents.on('did-create-window', (child) => {
+    settingsWindows.set(child, win);
+    child.on('closed', () => settingsWindows.delete(child));
+  });
   win.on('enter-full-screen', () => sendToWindow(win, 'fullscreen-changed', true));
   win.on('leave-full-screen', () => sendToWindow(win, 'fullscreen-changed', false));
   win.on('closed', () => {
@@ -409,6 +435,19 @@ app.on('web-contents-created', (_event, contents) => {
     // Releasing Control commits the ⌃Tab tab switcher
     if (input.type === 'keyUp' && input.key === 'Control' && isBrowserWindow(win)) {
       sendToWindow(win, 'control-up');
+    }
+    // A Settings window only knows ⌘W (close) and ⌘, (already open); while it records a new
+    // shortcut, every key goes to it
+    if (settingsWindows.has(win)) {
+      if (recording.has(settingsWindows.get(win).id)) return;
+      const action = matchShortcut(input, win);
+      if (action === 'close-tab') {
+        event.preventDefault();
+        win.close();
+      } else if (action === 'settings') {
+        event.preventDefault();
+      }
+      return;
     }
     const action = matchShortcut(input, win);
     if (!action) return;

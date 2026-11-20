@@ -47,9 +47,11 @@ async function assign(action, combo) {
 let stopRecording = null;
 let rerender = null;
 
-// Listens on the window while main lets every key through; Esc cancels, ⌫ clears
+// Listens on the window showing the row (the Settings window) while main lets every key
+// through; Esc cancels, ⌫ clears
 function record(kbd, onDone) {
   if (stopRecording) stopRecording();
+  const view = kbd.ownerDocument.defaultView;
   const before = kbd.textContent;
   kbd.textContent = 'Type a shortcut…';
   kbd.classList.add('recording');
@@ -70,8 +72,8 @@ function record(kbd, onDone) {
     finish(combo);
   };
   const finish = (combo) => {
-    window.removeEventListener('keydown', onKey, true);
-    window.removeEventListener('blur', cancel);
+    view.removeEventListener('keydown', onKey, true);
+    view.removeEventListener('blur', cancel);
     ipcRenderer.send('shortcut-recording', false);
     kbd.classList.remove('recording');
     kbd.textContent = before;
@@ -79,8 +81,8 @@ function record(kbd, onDone) {
     if (combo !== undefined) onDone(combo);
   };
   const cancel = () => finish(undefined);
-  window.addEventListener('keydown', onKey, true);
-  window.addEventListener('blur', cancel);
+  view.addEventListener('keydown', onKey, true);
+  view.addEventListener('blur', cancel);
   stopRecording = cancel;
 }
 

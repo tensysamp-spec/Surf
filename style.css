@@ -3309,3 +3309,61 @@ body.sidebar-collapsed #profile-chip { display: none; }
 .shortcut-kbd.recording { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); color: var(--accent); }
 /* Keeps its space so the keys line up whether or not a row was changed */
 .shortcut-row .h-delete.unchanged { visibility: hidden; }
+
+/* ------------------------------------------------------------------ */
+/* Settings window (a separate window the browser window draws into)   */
+/* ------------------------------------------------------------------ */
+
+body.settings-window { background: var(--bg); }
+.sw { display: grid; grid-template-columns: 232px minmax(0, 1fr); height: 100vh; }
+.sw-nav {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--tint-bg);
+  border-right: 1px solid var(--line);
+}
+/* Room for the window buttons; the strip drags the window like a title bar */
+.sw-nav-top { padding: 52px 12px 10px; -webkit-app-region: drag; }
+.sw-search {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--white-2);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+  -webkit-app-region: no-drag;
+}
+.sw-search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.sw-nav-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 10px 16px; display: flex; flex-direction: column; gap: 1px; }
+.sw-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: left;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.sw-nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+.sw-nav-item:hover { background: var(--white-1); color: var(--text); }
+.sw-nav-item.active { background: var(--accent); color: #fff; }
+.sw-nav-item.active svg { color: #fff; }
+.sw-main { min-height: 0; overflow-y: auto; padding: 0 40px 48px; }
+/* The top of the content also drags the window */
+.sw-main::before { content: ""; display: block; height: 28px; position: sticky; top: 0; -webkit-app-region: drag; }
+.sw-section { max-width: 640px; margin: 0 auto; animation: fade-in 160ms var(--ease); }
+.sw-section + .sw-section { margin-top: 36px; }
+.sw-title { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 6px 0 14px; color: var(--text); }
+.sw-section h4 { margin: 22px 0 8px; color: var(--text-faint); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.sw-section .settings-row:first-of-type { border-top: 1px solid var(--line); }
+body.settings-window .settings-row { padding: 12px 0; }
+body.settings-window .settings-hint { font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .sw-section { animation: none; } }

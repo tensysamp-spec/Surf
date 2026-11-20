@@ -44,16 +44,56 @@ const SHORTCUTS = [
   ['Right-drag ← → ↓ ↓→', 'Gestures: back, forward, new tab, close'],
 ];
 
-let panel = null;
-let release = null;
+// The Settings window: a real window (main lets this window open it) that this browser
+// window's code draws into, so every section keeps working with the live tabs, sidebar etc.
+let win = null;
+let sections = []; // { id, title, el, nav }
+let showSection = null;
+
+const SECTION_ICONS = {
+  appearance: 'palette', start: 'sparkles', default: 'globe', browsing: 'window', atc: 'send',
+  passwords: 'key', autofill: 'card', privacy: 'shield', import: 'download', profiles: 'user',
+  extensions: 'zap', ai: 'sparkles', 'ai-provider': 'brain', skills: 'wand', memory: 'brain', shortcuts: 'keyboard',
+};
 
 function close() {
-  if (!panel) return;
-  ctx.shortcuts.close();
-  U.removeAnimated(panel, 160);
-  panel = null;
-  if (release) release();
-  release = null;
+  if (win && !win.closed) win.close();
+}
+
+// The Settings window looks like this window: same theme classes and space colors, kept in sync
+function mirrorLook(doc) {
+  const copy = () => {
+    doc.body.className = `settings-window ${document.body.className}`;
+    doc.documentElement.style.cssText = document.documentElement.style.cssText;
+  };
+  copy();
+  const observer = new MutationObserver(copy);
+  observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+  return observer;
+}
+
+function filterSections(query) {
+  const q = query.trim().toLowerCase();
+  for (const sec of sections) {
+    const rows = sec.el.querySelectorAll('.settings-row, .ext-row, .settings-picker');
+    const titleHit = !q || sec.title.toLowerCase().includes(q);
+    let hits = 0;
+    rows.forEach((row) => {
+      const hit = titleHit || row.textContent.toLowerCase().includes(q);
+      row.hidden = !hit;
+      if (hit) hits++;
+    });
+    sec.match = titleHit || hits > 0;
+    sec.nav.hidden = !sec.match;
+  }
+  if (q) {
+    // Searching shows every matching section at once
+    for (const sec of sections) sec.el.hidden = !sec.match;
+    sections.forEach((sec) => sec.nav.classList.remove('active'));
+  } else {
+    showSection(sections.find((x) => x.nav.classList.contains('was-active'))?.id || sections[0].id);
+  }
 }
 
 function field(label, control, hint) {
@@ -86,27 +126,64 @@ function toggle(value, onChange) {
 }
 
 async function open(section = null) {
-  if (panel) {
-    close();
-    if (!section) return;
+  if (win && !win.closed) {
+    win.focus();
+    if (section && showSection) showSection(section);
+    return;
   }
-  const backdrop = U.el('div', 'modal-backdrop');
-  const box = U.el('div', 'modal settings-modal');
-  backdrop.appendChild(box);
+  win = window.open('about:blank', 'surf-settings');
+  if (!win) return;
+  const doc = win.document;
+  doc.open();
+  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Settings</title><link rel="stylesheet" href="${new URL('style.css', location.href).href}"></head><body></body></html>`);
+  doc.close();
+  const observer = mirrorLook(doc);
+  U.setPopupDocument(doc);
 
-  const header = U.el('div', 'modal-header');
-  header.appendChild(U.el('h2', null, 'Settings'));
-  header.appendChild(U.iconButton('close', 'Close', close));
-  box.appendChild(header);
+  const shell = U.el('div', 'sw');
+  const nav = U.el('nav', 'sw-nav');
+  nav.setAttribute('aria-label', 'Settings sections');
+  const navTop = U.el('div', 'sw-nav-top');
+  const search = U.el('input', 'sw-search');
+  search.type = 'search';
+  search.placeholder = 'Search settings';
+  search.spellcheck = false;
+  navTop.appendChild(search);
+  const navList = U.el('div', 'sw-nav-list');
+  nav.append(navTop, navList);
+  const main = U.el('main', 'sw-main');
+  shell.append(nav, main);
+  doc.body.appendChild(shell);
 
-  const body = U.el('div', 'modal-body');
-  box.appendChild(body);
-
+  sections = [];
+  let body = null;
   const heading = (text, id) => {
-    const h = U.el('h4', null, text);
-    if (id) h.dataset.section = id;
-    body.appendChild(h);
-    return h;
+    id = id || text.toLowerCase().replace(/[^a-z]+/g, '-');
+    const el = U.el('section', 'sw-section');
+    el.dataset.section = id;
+    el.appendChild(U.el('h1', 'sw-title', text));
+    main.appendChild(el);
+    const btn = U.el('button', 'sw-nav-item');
+    btn.type = 'button';
+    btn.append(U.icon(SECTION_ICONS[id] || 'settings'), U.el('span', null, text));
+    btn.addEventListener('click', () => {
+      search.value = '';
+      filterSections('');
+      showSection(id);
+    });
+    navList.appendChild(btn);
+    sections.push({ id, title: text, el, nav: btn });
+    body = el;
+    return el;
+  };
+  showSection = (id) => {
+    const target = sections.find((x) => x.id === id) || sections[0];
+    for (const sec of sections) {
+      sec.el.hidden = sec !== target;
+      sec.nav.classList.toggle('active', sec === target);
+      sec.nav.classList.toggle('was-active', sec === target);
+    }
+    main.scrollTop = 0;
   };
 
   heading('Appearance');
@@ -134,9 +211,13 @@ async function open(section = null) {
   colorRow.append(colorText, ctx.sidebar.themePicker(space));
   body.appendChild(colorRow);
 
-  heading('Getting started');
+  heading('Getting started', 'start');
   const introBtn = U.el('button', 'btn', 'Replay intro');
-  introBtn.addEventListener('click', () => ctx.intro.start());
+  introBtn.addEventListener('click', () => {
+    close();
+    window.focus();
+    ctx.intro.start();
+  });
   body.appendChild(field('Welcome tour', introBtn, 'A quick walkthrough of the sidebar, spaces, the command bar and more.'));
 
   heading('Default browser', 'default');
@@ -257,7 +338,7 @@ async function open(section = null) {
   heading('Privacy');
   const reportBtn = U.el('button', 'btn', 'Open report');
   reportBtn.addEventListener('click', () => {
-    close();
+    window.focus();
     ctx.privacy.openReport();
   });
   body.appendChild(field('Privacy report', reportBtn, 'Which trackers were blocked, and on which sites.'));
@@ -313,7 +394,7 @@ async function open(section = null) {
   ctx.extensions.installControls(body, refreshExt);
   body.appendChild(U.el('p', 'settings-hint', 'Click “Add to Chrome” on any Chrome Web Store page to install; store extensions update automatically. Content scripts (e.g. Dark Reader, ad blockers) work best. Toolbar popups open in a small window; some extensions that rely on Chrome’s tab APIs may not work fully.'));
 
-  heading('AI features');
+  heading('AI features', 'ai');
   const languages = ['', 'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Dutch', 'Russian', 'Ukrainian', 'Polish', 'Turkish', 'Arabic', 'Hindi', 'Japanese', 'Korean', 'Chinese (Simplified)', 'Chinese (Traditional)'];
   body.appendChild(field('Translate pages into', select(
     languages.map((l) => [l, l || 'My system language']),
@@ -355,6 +436,7 @@ async function open(section = null) {
   };
   renderMemory();
   body.appendChild(memList);
+  heading('AI provider', 'ai-provider');
   const hasKey = await ipcRenderer.invoke('ai-has-key');
   const keyRow = U.el('div', 'settings-key');
   const keyInput = U.el('input', 'dialog-input');
@@ -380,7 +462,7 @@ async function open(section = null) {
   });
   keyRow.append(keyInput, saveBtn, removeBtn);
   body.appendChild(keyRow);
-  body.appendChild(U.el('p', 'settings-hint', 'Used for page summaries, web answers, link previews (hover a link and press Shift), translation, download names, and tidying tabs. Your key is stored encrypted on this computer and sent only to Anthropic’s API. Get one at platform.claude.com.'));
+  body.insertBefore(field('Claude API key', U.el('span'), 'Used for page summaries, web answers, link previews (hover a link and press Shift), translation, download names, and tidying tabs. Your key is stored encrypted on this computer and sent only to Anthropic’s API. Get one at platform.claude.com.'), keyRow);
 
   // Your own AI server (e.g. Ollama on a free cloud VM) instead of Claude
   const server = await ipcRenderer.invoke('ai-get-server');
@@ -447,16 +529,31 @@ async function open(section = null) {
   }
   body.appendChild(grid);
 
-  backdrop.addEventListener('mousedown', (e) => {
-    if (e.target === backdrop) close();
+  showSection(section || 'appearance');
+  search.addEventListener('input', () => filterSections(search.value));
+
+  doc.addEventListener('keydown', (e) => {
+    // Esc closes a menu or dialog first, then clears the search, then the window
+    if (e.key === 'Escape') {
+      if (U.handleEscape()) return;
+      if (search.value) {
+        search.value = '';
+        filterSections('');
+      } else close();
+    } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      search.focus();
+    }
   });
-  document.body.appendChild(backdrop);
-  panel = backdrop;
-  release = U.pushEscape(close);
-  if (section) {
-    const target = body.querySelector(`[data-section="${section}"]`);
-    if (target) target.scrollIntoView({ block: 'start' });
-  }
+  win.addEventListener('pagehide', () => {
+    ctx.shortcuts.close();
+    observer.disconnect();
+    U.setPopupDocument(null);
+    win = null;
+    showSection = null;
+    sections = [];
+  });
+  win.focus();
 }
 
 ctx.settings = { get, set, open, close };

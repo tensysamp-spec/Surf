@@ -291,15 +291,31 @@ function handleEscape() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Where popups go                                                     */
+/* ------------------------------------------------------------------ */
+
+// Toasts, menus and dialogs appear in the window you're looking at: normally this browser
+// window, or its Settings window (which this window's code draws into) while that has focus.
+let popupDoc = null;
+function setPopupDocument(doc) {
+  popupDoc = doc;
+}
+function uiDoc() {
+  const view = popupDoc && popupDoc.defaultView;
+  return view && !view.closed && popupDoc.hasFocus() ? popupDoc : document;
+}
+
+/* ------------------------------------------------------------------ */
 /* Toasts                                                              */
 /* ------------------------------------------------------------------ */
 
 function toast(message, { action, actionLabel, duration = 2600 } = {}) {
-  let host = $('toasts');
+  const doc = uiDoc();
+  let host = doc.getElementById('toasts');
   if (!host) {
     host = el('div');
     host.id = 'toasts';
-    document.body.appendChild(host);
+    doc.body.appendChild(host);
   }
   const node = el('div', 'toast');
   node.appendChild(el('span', null, message));
@@ -339,8 +355,8 @@ function closeContextMenu() {
   if (!openMenu) return;
   removeAnimated(openMenu.node, 110);
   openMenu.release();
-  document.removeEventListener('mousedown', openMenu.outside, true);
-  window.removeEventListener('blur', closeContextMenu);
+  openMenu.doc.removeEventListener('mousedown', openMenu.outside, true);
+  openMenu.doc.defaultView.removeEventListener('blur', closeContextMenu);
   openMenu = null;
 }
 
@@ -393,8 +409,10 @@ function contextMenu(items, x, y) {
     node.appendChild(row);
   }
 
-  document.body.appendChild(node);
-  const { innerWidth: W, innerHeight: H } = window;
+  const doc = uiDoc();
+  const view = doc.defaultView;
+  doc.body.appendChild(node);
+  const { innerWidth: W, innerHeight: H } = view;
   // Layout size, not getBoundingClientRect: the opening animation is scaling the menu down right now
   const rect = { width: node.offsetWidth, height: node.offsetHeight };
   // Menus opened low in the window (e.g. from the sidebar's bottom bar) grow upward;
@@ -408,9 +426,9 @@ function contextMenu(items, x, y) {
   const outside = (e) => {
     if (!node.contains(e.target)) closeContextMenu();
   };
-  document.addEventListener('mousedown', outside, true);
-  window.addEventListener('blur', closeContextMenu);
-  openMenu = { node, outside, release: pushEscape(closeContextMenu) };
+  doc.addEventListener('mousedown', outside, true);
+  view.addEventListener('blur', closeContextMenu);
+  openMenu = { node, outside, doc, release: pushEscape(closeContextMenu) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -440,7 +458,7 @@ function dialog({ title, message, value, placeholder, confirmLabel = 'OK', dange
     actions.append(cancel, ok);
     box.appendChild(actions);
     backdrop.appendChild(box);
-    document.body.appendChild(backdrop);
+    uiDoc().body.appendChild(backdrop);
 
     const finish = (result) => {
       release();
@@ -570,6 +588,6 @@ function renderMarkdown(container, markdown) {
 module.exports = {
   NEWTAB_URL, SEARCH_ENGINES, PRIVATE, PRIVATE_PARTITION, store, setSpaceEngine, searchEngine, searchUrl, isNewTabUrl, resolveInput, looksLikeUrl,
   displayUrl, compactUrl, hostOf, uid, ICONS, $, el, icon, iconElement, iconButton, formatBytes, timeAgo,
-  dayLabel, pushEscape, popEscape, handleEscape, toast, contextMenu, closeContextMenu, dialog, removeAnimated,
+  dayLabel, pushEscape, popEscape, handleEscape, toast, contextMenu, closeContextMenu, dialog, removeAnimated, setPopupDocument,
   sanitizeHtml, renderMarkdown,
 };

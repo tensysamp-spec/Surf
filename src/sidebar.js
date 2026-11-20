@@ -646,7 +646,12 @@ function themePicker(space) {
   presets.append(...presetBtns);
 
   wrap.append(top, pad, range, presets);
-  requestAnimationFrame(place);
+  // Place the handle once the pad has a size (it may be drawn into the Settings window, which lays out later)
+  const placeWhenSized = (tries = 0) => {
+    if (pad.clientWidth || tries > 30) place();
+    else requestAnimationFrame(() => placeWhenSized(tries + 1));
+  };
+  requestAnimationFrame(() => placeWhenSized());
   return wrap;
 }
 
