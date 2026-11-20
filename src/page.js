@@ -101,6 +101,18 @@ function zoom(direction) {
   U.toast(`Zoom ${zoomPercent(next)}%`, { duration: 1200 });
 }
 
+// For the site info popover and Settings → Site settings
+const zoomSites = () => ({ ...zoomLevels });
+function setSiteZoom(host, level) {
+  if (!level) delete zoomLevels[host];
+  else zoomLevels[host] = level;
+  U.store.set(ZOOM_KEY, zoomLevels);
+  for (const t of T().live.values()) {
+    if (t.kind === 'web' && zoomHost(t.url) === host) applyZoom(t);
+  }
+  updateZoomBadge();
+}
+
 function updateZoomBadge() {
   const badge = U.$('zoom-btn');
   const tab = T().activeTab();
@@ -414,4 +426,4 @@ function setup() {
   U.$('zoom-btn').addEventListener('click', () => zoom(0));
 }
 
-ctx.page = { hoveredLink: () => hovered, openDevTools, setup, bindTab, openFind, closeFind, findStep, zoom, onActiveChange, syncOverlays, updateLoadBar };
+ctx.page = { hoveredLink: () => hovered, openDevTools, setup, bindTab, openFind, closeFind, findStep, zoom, zoomSites, setSiteZoom, zoomPercent, ZOOM_STEPS, onActiveChange, syncOverlays, updateLoadBar };

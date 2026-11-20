@@ -81,6 +81,7 @@ require('./main/autofill')(M);
 require('./main/cleardata')(M);
 const profiles = require('./main/profiles')(M);
 const recovery = require('./main/recovery')(M);
+require('./main/siteinfo')(M);
 
 /* ------------------------------------------------------------------ */
 /* Misc IPC                                                            */

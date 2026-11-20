@@ -52,7 +52,7 @@ let showSection = null;
 
 const SECTION_ICONS = {
   appearance: 'palette', start: 'sparkles', default: 'globe', browsing: 'window', atc: 'send',
-  passwords: 'key', autofill: 'card', privacy: 'shield', import: 'download', profiles: 'user',
+  passwords: 'key', autofill: 'card', privacy: 'shield', 'site-settings': 'globe', import: 'download', profiles: 'user',
   extensions: 'zap', ai: 'sparkles', 'ai-provider': 'brain', skills: 'wand', memory: 'brain', shortcuts: 'keyboard',
 };
 
@@ -266,6 +266,7 @@ async function open(section = null) {
   resetPerms.addEventListener('click', async () => {
     await ipcRenderer.invoke('permissions-reset');
     resetPerms.disabled = true;
+    ctx.siteInfo.refreshSettings();
     U.toast('Site permissions reset — sites will ask again');
   });
   body.appendChild(field('Site permissions', resetPerms, permCount ? `${permCount} saved choice${permCount === 1 ? '' : 's'} for camera, microphone, location and notifications.` : 'Sites ask before using your camera, microphone, location or notifications.'));
@@ -345,6 +346,11 @@ async function open(section = null) {
   const clearBtn = U.el('button', 'btn', 'Clear…');
   clearBtn.addEventListener('click', () => ctx.clearData.open());
   body.appendChild(field('Clear browsing data', clearBtn, 'History, archived tabs, downloads list, cookies, cache and site permissions.'));
+
+  heading('Site settings', 'site-settings');
+  const siteBox = U.el('div');
+  body.appendChild(siteBox);
+  await ctx.siteInfo.renderSettings(siteBox);
 
   heading('Import', 'import');
   const importRow = U.el('div', 'boost-row');

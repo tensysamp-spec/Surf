@@ -40,8 +40,8 @@ async function open() {
   if (busy) return;
   const saved = { ...DEFAULT_CHOICE, ...U.store.get(KEY, {}) };
   if (!RANGES.some(([id]) => id === saved.range)) saved.range = DEFAULT_CHOICE.range;
-  // Private windows never save permission choices, so there's nothing to reset
-  const permCount = U.PRIVATE ? 0 : await ipcRenderer.invoke('permissions-count');
+  // A private window counts (and resets) only the choices made in it, kept in memory
+  const permCount = await ipcRenderer.invoke('permissions-count');
 
   const content = U.el('div', 'cd-body');
   const rangeBar = U.el('div', 'segmented cd-range');
@@ -130,6 +130,7 @@ async function clear(since, picked) {
     }
     if (picked.permissions) {
       await ipcRenderer.invoke('permissions-reset');
+      ctx.siteInfo.refreshSettings();
       done.push('site permissions');
     }
     if (!done.length) return U.toast('Nothing to clear in this time range');

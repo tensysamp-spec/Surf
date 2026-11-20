@@ -77,6 +77,7 @@ function update(syncUrl = false) {
   e.boost.classList.toggle('active', canFavorite && ctx.boosts.isActiveFor(url));
 
   updateShields();
+  ctx.siteInfo.sync(tab);
   ctx.page.onActiveChange();
 }
 
