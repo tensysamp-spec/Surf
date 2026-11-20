@@ -314,7 +314,11 @@ function render() {
   const list = U.$('library-list');
   const query = U.$('library-search').value.trim().toLowerCase();
   list.replaceChildren();
-  document.querySelectorAll('#library-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === current));
+  document.querySelectorAll('#library-tabs button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.tab === current);
+    // The tab row scrolls when the tabs don't fit; keep the current one in view
+    if (b.dataset.tab === current) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
   const clearBtn = U.$('library-clear-btn');
   clearBtn.hidden = !CLEAR_LABELS[current];
   clearBtn.querySelector('span').textContent = ` ${CLEAR_LABELS[current] || ''}`;

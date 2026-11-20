@@ -3367,3 +3367,8 @@ body.settings-window { background: var(--bg); }
 body.settings-window .settings-row { padding: 12px 0; }
 body.settings-window .settings-hint { font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .sw-section { animation: none; } }
+
+/* Library tabs: seven of them don't fit the drawer, so they keep their natural width and scroll */
+#library-tabs { overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
+#library-tabs::-webkit-scrollbar { display: none; }
+#library-tabs button { flex: 0 0 auto; padding: 0 10px; }
