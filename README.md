@@ -10,12 +10,14 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 - Sidebar with favorites, pinned tabs, and today's tabs, which are archived automatically after a while
 - Pinned tabs shown as square tiles that glow in each site's color; when a pinned tab has moved to another page, a ↩ badge takes it back to its home page
 - Spaces, each with its own color, search engine, and optionally separate logins
+- Spaces can be exported as .surfspace files (pinned tabs, folders and the space's look; never logins or history) and imported from the space menu, File → Import Space… or by opening the file in Finder; new spaces can start from a template (Work, Study, Watch, Build, or your own saved with Save as template…)
 - Spaces can be reordered by dragging them in the spaces bar (or Move space left/right in the space menu) and given an emoji icon (Choose icon… in the space menu)
 - Tab search (⇧⌘A): find any tab in every space, plus archived tabs and history
 - Sidebar on the left or the right (Settings → Appearance)
 - Custom space colors from a color picker, in the space menu and in Settings
 - Two-finger swipe on the sidebar to switch spaces
 - Folders, split view (up to 4 pages side by side), and drag and drop for everything, with animations when folders open and tabs are added or closed
+- Folders can have a color and an emoji icon (right-click a folder); Group tabs from this site gathers a site's Today tabs into one folder; right-click Clear for Sort Today (by site, title or last used, with undo) and Collapse/Expand all folders
 - Tab switcher: hold ⌃ and press Tab to step through recent tabs as thumbnails
 - Live folders that follow an RSS/Atom feed or a GitHub repo's pull requests and issues
 - Bookmarks in Library → Bookmarks: folders, search, drag to reorganize, and bookmarks.html import/export (right-click the ★ in the address bar to bookmark a page)
@@ -43,6 +45,7 @@ Surf is a desktop web browser for macOS, built with Electron. Tabs live in a sid
 - Cookie banners from the big consent platforms are hidden and rejected where possible (never accepted); off per site from the shield
 - HTTPS-only mode, fingerprinting protection (on in private windows by default) and Global Privacy Control, in Settings → Privacy
 - Private windows
+- Spaces with separate logins keep them everywhere: little windows opened from their links, page summaries and icon fetches use the space's own cookie jar
 - Password manager encrypted with the macOS Keychain, with CSV import from Chrome, Safari and Firefox and export
 - Address and card autofill (cards fill only on https pages; security codes are never saved)
 

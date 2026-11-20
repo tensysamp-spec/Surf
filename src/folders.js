@@ -118,9 +118,11 @@ function groupBySite(entryId) {
     space.today.splice(Math.max(0, space.today.findIndex(holds)), 0, folder);
   }
   // The site's icon color; the first lookup of an icon is async, so keep looking (a failed lookup retries after a minute)
+  // (fetched with the tab's own session, so an isolated Space's icon comes from its cookie jar)
   const favicon = T().entryFavicon(loc.node);
+  const partition = T().partitionFor(entryId);
   const tint = () => {
-    const color = !folder.color && ctx.siteColor.get(favicon);
+    const color = !folder.color && ctx.siteColor.get(favicon, partition);
     if (color) folder.color = color;
     return !!color;
   };
