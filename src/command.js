@@ -79,6 +79,7 @@ function actions() {
     { title: 'Clear history', keywords: 'clear delete history', icon: 'trash', run: () => ctx.library.clearHistory() },
     { title: 'Mute tab', keywords: 'mute sound audio', icon: 'mute', when: isWeb && !tab.muted, run: () => ctx.media.toggleMute(tab) },
     { title: 'Unmute tab', keywords: 'unmute sound audio', icon: 'volume', when: isWeb && tab.muted, run: () => ctx.media.toggleMute(tab) },
+    { title: 'Mute all other tabs', keywords: 'mute others other tabs silence quiet sound audio media', icon: 'mute', when: ctx.media.othersToMute(tab).length > 0, run: () => ctx.media.muteOthers(tab) },
     { title: 'Settings', keywords: 'settings preferences options api key', icon: 'settings', hint: K('settings'), run: () => ctx.settings.open() },
   ];
   return list.filter((a) => !('when' in a) || !!a.when);

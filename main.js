@@ -79,6 +79,7 @@ const ai = require('./main/ai')(M);
 const tools = require('./main/tools')(M);
 require('./main/autofill')(M);
 require('./main/offline')(M);
+require('./main/media')(M);
 const profiles = require('./main/profiles')(M);
 
 /* ------------------------------------------------------------------ */
@@ -583,6 +584,7 @@ function buildMenu() {
 /* ------------------------------------------------------------------ */
 
 const features = require('./main-features')(M);
+require('./main/updates')(M, features);
 
 /* ------------------------------------------------------------------ */
 /* App lifecycle                                                       */
