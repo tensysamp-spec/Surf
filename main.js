@@ -79,6 +79,7 @@ const ai = require('./main/ai')(M);
 const tools = require('./main/tools')(M);
 require('./main/autofill')(M);
 const profiles = require('./main/profiles')(M);
+const recovery = require('./main/recovery')(M);
 
 /* ------------------------------------------------------------------ */
 /* Misc IPC                                                            */
@@ -313,6 +314,7 @@ function createBrowserWindow({ query = {}, bounds = {}, background = '#f3f1f8' }
     },
   });
   browserWindows.add(win);
+  recovery.watchWindow(win);
   win.loadFile(path.join(__dirname, 'index.html'), { query });
   // The browser UI itself never navigates away (e.g. a dropped link)
   win.webContents.on('will-navigate', (e) => e.preventDefault());
@@ -458,6 +460,9 @@ app.on('web-contents-created', (_event, contents) => {
     } else if (action === 'private-window') {
       event.preventDefault();
       createPrivateWindow();
+    } else if (action === 'reopen-window') {
+      event.preventDefault();
+      M.focusMain();
     } else if (isBrowserWindow(win)) {
       event.preventDefault();
       sendToWindow(win, 'shortcut', action);
@@ -554,6 +559,8 @@ function buildMenu() {
       submenu: [
         { label: 'New Private Window', ...accel('private-window'), click: () => createPrivateWindow() },
         { label: 'New Little Window', ...accel('little-window'), click: () => createMiniWindow() },
+        // Also registered as a real accelerator, so it works with no window open
+        { label: 'Reopen Closed Window', accelerator: accel('reopen-window').accelerator, click: () => M.focusMain() },
         { type: 'separator' },
         { ...profileMenu, submenu: profileMenu.submenu.map((item) => ({ ...item })) },
         { type: 'separator' },
@@ -590,6 +597,7 @@ const features = require('./main-features')(M);
 app.whenReady().then(() => {
   // The packaged app gets its icon from the bundle; when run with `npm start`, set it here
   if (!app.isPackaged && app.dock) app.dock.setIcon(path.join(__dirname, 'build', 'icon.png'));
+  recovery.start();
   sessions.configureAll();
   buildMenu();
 

@@ -37,6 +37,7 @@ const ACTIONS = [
   ['downloads', 'Shift+Mod+J', 'Downloads'],
   ['little-window', 'Alt+Mod+N', 'Little window'],
   ['private-window', 'Shift+Mod+N', 'Private window'],
+  ['reopen-window', 'Alt+Shift+Mod+T', 'Reopen closed window'],
   ['devtools', 'Alt+Mod+I', 'Page DevTools'],
   ['settings', 'Mod+,', 'Settings'],
 ];

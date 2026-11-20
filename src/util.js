@@ -40,6 +40,7 @@ const store = {
     }
     try {
       localStorage.setItem(key, JSON.stringify(value));
+      if (store.onWrite) store.onWrite(key);
     } catch (err) {
       console.error('Could not save', key, err);
     }

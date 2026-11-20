@@ -402,4 +402,5 @@ function refresh() {
 ctx.library = {
   setup, open, close, toggle, isOpen, refresh, addHistory, updateHistory, clearHistory, importHistory,
   history: () => history,
+  current: () => current,
 };

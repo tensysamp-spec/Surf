@@ -35,6 +35,7 @@ require('./src/autofill');
 require('./src/readinglist');
 require('./src/privacy');
 require('./src/intro');
+require('./src/recovery');
 
 /* ------------------------------------------------------------------ */
 /* Main-process events                                                 */
@@ -179,6 +180,7 @@ if (U.PRIVATE) {
 ipcRenderer.on('shift-key', () => ctx.ai.linkPreview());
 ctx.tabs.boot();
 ctx.intro.maybeShowFirstRun();
+ctx.recovery.setup();
 
 U.$('settings-btn').addEventListener('click', () => ctx.settings.open());
 U.$('profile-chip').addEventListener('click', () => ctx.settings.open('profiles'));
