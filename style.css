@@ -3471,3 +3471,18 @@ body.dark .has-site.pinned-tile.active, body.dark .has-site.favorite.active {
 .media-transport .icon-btn.small { min-width: 28px; height: 26px; }
 .media-rest { margin-top: 3px; padding-top: 3px; border-top: 1px solid var(--line); max-height: 152px; overflow-y: auto; }
 .media-rest::-webkit-scrollbar { width: 0; }
+
+/* ------------------------------------------------------------------ */
+/* Downloads: open-when-done toggle, shelf progress list               */
+/* ------------------------------------------------------------------ */
+
+.dl-open-when-done.on { color: var(--accent); background: var(--accent-soft); }
+.download-item[draggable="true"] { cursor: default; }
+#shelf-downloads { display: flex; flex-direction: column; gap: 2px; padding: 2px 6px 4px; }
+#shelf-downloads[hidden] { display: none; }
+.shelf-dl { display: flex; align-items: center; gap: 2px; padding: 5px 4px 5px 6px; border-radius: var(--radius-sm); }
+.shelf-dl:hover { background: var(--glass-1); }
+.shelf-dl-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.shelf-dl-name { overflow: hidden; color: var(--text); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
+.shelf-dl-status { color: var(--text-faint); font-size: 10.5px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shelf-dl .progress { margin-top: 3px; height: 3px; }

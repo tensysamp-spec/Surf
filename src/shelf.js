@@ -180,6 +180,32 @@ function render(freshId = null) {
   badge.textContent = unseen > 9 ? '9+' : String(unseen);
 }
 
+// Downloads in progress, above the items: name, bar, speed and time left
+function renderDownloads() {
+  const box = U.$('shelf-downloads');
+  if (!box) return;
+  const active = ctx.library.downloads().filter((d) => d.state === 'progressing' || (d.state === 'interrupted' && d.canResume));
+  box.hidden = !active.length;
+  const L = ctx.library;
+  // Same downloads with the same buttons: just move the numbers (see library.js)
+  if (box.children.length === active.length && active.every((d) => L.patchDownloadRow(box, d))) return;
+  box.replaceChildren(...active.map((d) => {
+    const row = U.el('div', 'shelf-dl');
+    Object.assign(row.dataset, { dl: d.id, shape: L.downloadShape(d), short: '1' });
+    const text = U.el('div', 'shelf-dl-text');
+    text.append(U.el('span', 'shelf-dl-name', d.filename), U.el('span', 'shelf-dl-status dl-status', L.downloadStatus(d, { short: true })));
+    const bar = U.el('div', 'progress');
+    const fill = U.el('div', 'progress-fill');
+    fill.style.width = d.total ? `${(d.received / d.total) * 100}%` : '30%';
+    bar.appendChild(fill);
+    text.appendChild(bar);
+    row.append(text, ...L.downloadControls(d, 'h-delete'));
+    row.title = d.url;
+    row.addEventListener('click', (e) => { if (!e.target.closest('button')) L.open('downloads'); });
+    return row;
+  }));
+}
+
 /* ------------------------------------------------------------------ */
 /* Open / close                                                        */
 /* ------------------------------------------------------------------ */
@@ -206,6 +232,10 @@ function bounce() {
 /* ------------------------------------------------------------------ */
 
 function setup() {
+  const progress = U.el('div', null);
+  progress.id = 'shelf-downloads';
+  U.$('shelf-items').before(progress);
+  renderDownloads();
   U.$('shelf-btn').addEventListener('click', toggle);
   U.$('shelf-close').addEventListener('click', () => setOpen(false));
   U.$('shelf-clear').addEventListener('click', clear);
@@ -251,4 +281,4 @@ function setup() {
   render();
 }
 
-ctx.shelf = { setup, add, addFile, toggle, setOpen };
+ctx.shelf = { setup, add, addFile, toggle, setOpen, renderDownloads };

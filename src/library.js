@@ -99,6 +99,8 @@ ipcRenderer.on('download-update', (_e, d) => {
     const entry = existing || d;
     ctx.ai.renameDownload(entry).then((renamed) => {
       ctx.shelf.addFile(renamed ? renamed.path : entry.savePath, renamed ? renamed.filename : entry.filename);
+      // "Open when done" waits for the final name, so the app opens the renamed file
+      if (entry.openWhenDone) ipcRenderer.send('download-action', { action: 'open', savePath: renamed ? renamed.path : entry.savePath });
       if (renamed) {
         const oldPath = entry.savePath;
         const oldName = entry.filename;
@@ -122,8 +124,57 @@ ipcRenderer.on('download-update', (_e, d) => {
   }
   if (d.state !== 'progressing') saveDownloads();
   updateIndicator();
-  if (isOpen() && current === 'downloads') render();
+  ctx.shelf.renderDownloads();
+  // Progress ticks update the row in place: rebuilding it every second would swallow
+  // clicks that land between a button's mousedown and mouseup
+  if (isOpen() && current === 'downloads' && !(existing && patchDownloadRow(U.$('library-list'), existing))) render();
 });
+
+// What decides a row's buttons; while it's unchanged only the text and bar move
+const downloadShape = (d) => [d.state, d.paused, d.canResume, d.openWhenDone, d.filename].join('|');
+
+function patchDownloadRow(root, d) {
+  const row = [...root.querySelectorAll('[data-dl]')].find((x) => x.dataset.dl === d.id);
+  if (!row || row.dataset.shape !== downloadShape(d)) return false;
+  row.querySelector('.dl-status').textContent = downloadStatus(d, { short: row.dataset.short === '1' });
+  const fill = row.querySelector('.progress-fill');
+  if (fill) fill.style.width = d.total ? `${(d.received / d.total) * 100}%` : '30%';
+  return true;
+}
+
+const downloadAction = (d, action, extra = {}) => ipcRenderer.send('download-action', { id: d.id, action, savePath: d.savePath, url: d.url, partition: d.partition, ...extra });
+
+function timeLeft(seconds) {
+  if (seconds < 60) return `${Math.max(1, Math.round(seconds))} s left`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min left`;
+  return `${(seconds / 3600).toFixed(1)} h left`;
+}
+
+// "12.3 MB of 80 MB · 2.1 MB/s · 30 s left" (used by the Library row); the narrow
+// shelf shows "15% · 2.1 MB/s · 30 s left"
+function downloadStatus(d, { short = false } = {}) {
+  if (d.state === 'progressing') {
+    const size = short && d.total ? `${Math.floor((d.received / d.total) * 100)}%` : `${U.formatBytes(d.received)}${d.total ? ` of ${U.formatBytes(d.total)}` : ''}`;
+    if (d.paused) return `${size} — paused`;
+    if (!d.speed) return size;
+    const eta = d.total > d.received ? ` · ${timeLeft((d.total - d.received) / d.speed)}` : '';
+    return `${size} · ${U.formatBytes(d.speed)}/s${eta}`;
+  }
+  if (d.state === 'completed') return `${U.formatBytes(d.total || d.received)} · ${U.hostOf(d.url)}`;
+  if (d.state === 'interrupted') return d.canResume ? `Interrupted at ${U.formatBytes(d.received)}` : 'Interrupted';
+  return d.state === 'cancelled' ? 'Cancelled' : 'Failed';
+}
+
+// Buttons for a download that's still going (or stalled but resumable)
+function downloadControls(d, className) {
+  const btns = [];
+  if (d.state === 'progressing' || d.canResume) {
+    const resume = d.paused || d.state === 'interrupted';
+    btns.push(U.iconButton(resume ? 'play' : 'pause', resume ? 'Resume' : 'Pause', (e) => { e.stopPropagation(); downloadAction(d, resume ? 'resume' : 'pause'); }, className));
+    btns.push(U.iconButton('close', 'Cancel', (e) => { e.stopPropagation(); downloadAction(d, 'cancel'); }, className));
+  }
+  return btns;
+}
 
 function updateIndicator() {
   const active = downloads.filter((d) => d.state === 'progressing');
@@ -227,15 +278,13 @@ function renderDownloads(list, query) {
   if (!entries.length) return list.appendChild(empty(query ? 'No matching downloads.' : 'Files you download show up here.'));
   for (const d of entries) {
     const item = U.el('div', 'lib-item download-item');
+    item.dataset.dl = d.id;
+    item.dataset.shape = downloadShape(d);
     const iconWrap = U.el('span', 'h-icon');
     iconWrap.appendChild(U.icon('download'));
     const text = U.el('div', 'h-text');
     text.appendChild(U.el('span', 'h-title', d.filename));
-    let status;
-    if (d.state === 'progressing') status = `${U.formatBytes(d.received)}${d.total ? ` of ${U.formatBytes(d.total)}` : ''}${d.paused ? ' — paused' : ''}`;
-    else if (d.state === 'completed') status = `${U.formatBytes(d.total || d.received)} · ${U.hostOf(d.url)}`;
-    else status = d.state === 'cancelled' ? 'Cancelled' : 'Failed';
-    text.appendChild(U.el('span', 'h-url', status));
+    text.appendChild(U.el('span', 'h-url dl-status', downloadStatus(d)));
     if (d.state === 'progressing') {
       const bar = U.el('div', 'progress');
       const fill = U.el('div', 'progress-fill');
@@ -246,15 +295,33 @@ function renderDownloads(list, query) {
     item.append(iconWrap, text);
 
     const btns = U.el('span', 'lib-actions visible');
-    const act = (action) => ipcRenderer.send('download-action', { id: d.id, action, savePath: d.savePath });
+    const act = (action) => downloadAction(d, action);
     if (d.state === 'progressing') {
-      btns.appendChild(U.iconButton(d.paused ? 'play' : 'pause', d.paused ? 'Resume' : 'Pause', () => act(d.paused ? 'resume' : 'pause'), 'h-delete'));
-      btns.appendChild(U.iconButton('close', 'Cancel', () => act('cancel'), 'h-delete'));
-    } else if (d.state === 'completed') {
+      const when = U.iconButton('external', d.openWhenDone ? 'Opens when done' : 'Open when done', () => {
+        d.openWhenDone = !d.openWhenDone;
+        downloadAction(d, 'open-when-done', { value: d.openWhenDone });
+        render();
+      }, 'h-delete dl-open-when-done' + (d.openWhenDone ? ' on' : ''));
+      btns.appendChild(when);
+    }
+    btns.append(...downloadControls(d, 'h-delete'));
+    if (d.state === 'completed') {
       btns.appendChild(U.iconButton('folder', 'Show in folder', () => act('show'), 'h-delete'));
+    } else if (!d.canResume && (d.state === 'interrupted' || d.state === 'cancelled') && d.url) {
+      // An interrupted download's unfinished file gets replaced, unless another entry now owns that path
+      const reuse = d.state === 'interrupted' && !downloads.some((x) => x !== d && x.savePath === d.savePath);
+      btns.appendChild(U.iconButton('reload', 'Retry', () => downloadAction(d, 'retry', { reuse }), 'h-delete'));
     }
     item.appendChild(btns);
-    if (d.state === 'completed') item.addEventListener('click', (e) => { if (!e.target.closest('button')) act('open'); });
+    if (d.state === 'completed') {
+      item.addEventListener('click', (e) => { if (!e.target.closest('button')) act('open'); });
+      // Drag the file out to Finder or another app, like the shelf
+      item.draggable = true;
+      item.addEventListener('dragstart', (e) => {
+        e.preventDefault();
+        ipcRenderer.send('shelf-drag-file', d.savePath);
+      });
+    }
     list.appendChild(item);
   }
 }
@@ -389,7 +456,9 @@ function setup() {
     render();
   }));
   // Downloads that were mid-flight when the app quit can't resume
-  downloads.forEach((d) => { if (d.state === 'progressing') d.state = 'interrupted'; });
+  downloads.forEach((d) => {
+    if (d.state === 'progressing' || d.state === 'interrupted') Object.assign(d, { state: 'interrupted', canResume: false, paused: false, speed: 0 });
+  });
   updateIndicator();
   ctx.readingList.updateBadge();
 }
@@ -402,4 +471,5 @@ function refresh() {
 ctx.library = {
   setup, open, close, toggle, isOpen, refresh, addHistory, updateHistory, clearHistory, importHistory,
   history: () => history,
+  downloads: () => downloads, downloadStatus, downloadControls, downloadShape, patchDownloadRow,
 };

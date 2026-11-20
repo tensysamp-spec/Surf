@@ -52,7 +52,7 @@ let showSection = null;
 
 const SECTION_ICONS = {
   appearance: 'palette', start: 'sparkles', default: 'globe', browsing: 'window', atc: 'send',
-  passwords: 'key', autofill: 'card', privacy: 'shield', import: 'download', profiles: 'user',
+  passwords: 'key', autofill: 'card', downloads: 'download', privacy: 'shield', import: 'download', profiles: 'user',
   extensions: 'zap', ai: 'sparkles', 'ai-provider': 'brain', skills: 'wand', memory: 'brain', shortcuts: 'keyboard',
 };
 
@@ -279,6 +279,22 @@ async function open(section = null) {
     set('gestures', v);
     ipcRenderer.send('set-pref', 'gestures', v);
   }), 'Hold the right mouse button and drag: ← back, → forward, ↓ new tab, ↓→ close tab, ↑↓ reload.'));
+
+  heading('Downloads', 'downloads');
+  // Kept by the main process (it saves the files), so every window shares them
+  const dl = await ipcRenderer.invoke('download-prefs-get');
+  const home = require('os').homedir();
+  const shortPath = (p) => (p.startsWith(home) ? `~${p.slice(home.length)}` : p);
+  const folderBtn = U.el('button', 'btn', 'Choose…');
+  const folderRow = field('Download folder', folderBtn, shortPath(dl.folder));
+  folderBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const chosen = await ipcRenderer.invoke('download-choose-folder');
+    if (chosen) folderRow.querySelector('small').textContent = shortPath(chosen);
+  });
+  body.appendChild(folderRow);
+  body.appendChild(field('Ask where to save each file', toggle(dl.ask, (v) => ipcRenderer.invoke('download-prefs-set', { ask: v })), 'Shows a save dialog instead of saving straight to the download folder.'));
+  body.appendChild(field('Open safe files after downloading', toggle(dl.openSafe, (v) => ipcRenderer.invoke('download-prefs-set', { openSafe: v })), 'PDFs, images and text files open on their own. You can also choose “Open when done” on any download in Library → Downloads.'));
 
   heading('Air Traffic Control', 'atc');
   body.appendChild(U.el('p', 'settings-hint', 'Links from other apps that contain a pattern open straight in a chosen space — e.g. “figma.com” → Work.'));

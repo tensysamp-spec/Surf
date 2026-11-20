@@ -2,7 +2,7 @@
 // downloads, and permission prompts. Applied to the default session, every Space
 // profile, and private windows.
 
-const { app, ipcMain, session, webContents, shell } = require('electron');
+const { app, ipcMain, session, webContents } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -130,58 +130,8 @@ module.exports = function setupSessions(M) {
   /* Downloads                                                        */
   /* ---------------------------------------------------------------- */
 
-  const downloads = new Map();
-  let nextDownloadId = 1;
-
-  function uniqueSavePath(filename) {
-    const dir = app.getPath('downloads');
-    const ext = path.extname(filename);
-    const base = path.basename(filename, ext) || 'download';
-    let candidate = path.join(dir, filename || 'download');
-    for (let n = 1; fs.existsSync(candidate); n++) candidate = path.join(dir, `${base} (${n})${ext}`);
-    return candidate;
-  }
-
-  function setupDownloads(ses) {
-    ses.on('will-download', (_event, item, contents) => {
-      const id = `${Date.now()}-${nextDownloadId++}`;
-      item.setSavePath(uniqueSavePath(item.getFilename()));
-      downloads.set(id, item);
-      const target = contents && !contents.isDestroyed() ? contents : null;
-      const report = (state) => {
-        const payload = {
-          id,
-          filename: path.basename(item.getSavePath()),
-          url: item.getURL(),
-          savePath: item.getSavePath(),
-          total: item.getTotalBytes(),
-          received: item.getReceivedBytes(),
-          paused: item.isPaused(),
-          state,
-          startTime: item.getStartTime() * 1000,
-        };
-        if (target && !target.isDestroyed()) M.sendToOwner(target, 'download-update', payload);
-        else M.sendToMain('download-update', payload);
-      };
-      report('progressing');
-      item.on('updated', (_e, state) => report(state === 'interrupted' ? 'interrupted' : 'progressing'));
-      item.once('done', (_e, state) => {
-        report(state);
-        downloads.delete(id);
-      });
-    });
-  }
-
-  ipcMain.on('download-action', (_event, { id, action, savePath }) => {
-    const item = downloads.get(id);
-    switch (action) {
-      case 'cancel': if (item) item.cancel(); break;
-      case 'pause': if (item) item.pause(); break;
-      case 'resume': if (item && item.canResume()) item.resume(); break;
-      case 'open': if (savePath) shell.openPath(savePath); break;
-      case 'show': if (savePath) shell.showItemInFolder(savePath); break;
-    }
-  });
+  // Saving, pause/resume, retry and download settings live in main/downloads.js
+  const downloadsFeature = require('./downloads')(M);
 
   /* ---------------------------------------------------------------- */
   /* Permissions: ask once per site instead of Electron's allow-all   */
@@ -263,7 +213,7 @@ module.exports = function setupSessions(M) {
     if (configured.has(ses)) return;
     configured.add(ses);
     setupBlocker(ses);
-    setupDownloads(ses);
+    downloadsFeature.setup(ses);
     setupPermissions(ses, { remember: ses.isPersistent() });
   }
 
