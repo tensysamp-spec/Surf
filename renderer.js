@@ -35,6 +35,7 @@ require('./src/autofill');
 require('./src/readinglist');
 require('./src/privacy');
 require('./src/intro');
+require('./src/updates');
 
 /* ------------------------------------------------------------------ */
 /* Main-process events                                                 */
@@ -145,6 +146,7 @@ ctx.panels.setup();
 ctx.liveFolders.setup();
 ctx.bookmarks.setup();
 ctx.profiles.setup();
+ctx.updates.setup();
 
 // Air Traffic Control: a link from another app routed to a Space
 ipcRenderer.on('open-in-space', (_e, { url, spaceId }) => {

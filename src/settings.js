@@ -54,6 +54,7 @@ const SECTION_ICONS = {
   appearance: 'palette', start: 'sparkles', default: 'globe', browsing: 'window', atc: 'send',
   passwords: 'key', autofill: 'card', downloads: 'download', privacy: 'shield', import: 'download', profiles: 'user',
   extensions: 'zap', ai: 'sparkles', 'ai-provider': 'brain', skills: 'wand', memory: 'brain', shortcuts: 'keyboard',
+  updates: 'download',
 };
 
 function close() {
@@ -395,6 +396,9 @@ async function open(section = null) {
   }
   body.appendChild(importRow);
   body.appendChild(U.el('p', 'settings-hint', 'Bookmarks go to Library → Bookmarks (in a folder named after the browser); history merges into yours. Close the other browser first for the freshest history. A bookmarks.html file can be imported from the Bookmarks tab.'));
+
+  heading('Updates', 'updates');
+  await ctx.updates.renderSettings(body, { field, toggle });
 
   heading('Profiles', 'profiles');
   const profileBox = U.el('div');

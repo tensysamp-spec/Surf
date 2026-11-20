@@ -583,6 +583,7 @@ function buildMenu() {
 /* ------------------------------------------------------------------ */
 
 const features = require('./main-features')(M);
+require('./main/updates')(M, features);
 
 /* ------------------------------------------------------------------ */
 /* App lifecycle                                                       */
