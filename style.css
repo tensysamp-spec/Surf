@@ -3609,3 +3609,11 @@ body.dark .has-site.pinned-tile.active, body.dark .has-site.favorite.active {
 .folder.tinted > .folder-children::before { background: color-mix(in srgb, var(--folder) 40%, transparent); }
 body.dark .folder.tinted > .folder-row { background: color-mix(in srgb, var(--folder) 16%, transparent); }
 body.dark .folder.tinted > .folder-row:hover { background: color-mix(in srgb, var(--folder) 24%, transparent); }
+
+/* ------------------------------------------------------------------ */
+/* Space export / import + templates (src/spaceshare.js)               */
+/* ------------------------------------------------------------------ */
+.dialog .ss-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.dialog .ss-check input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+.dialog .ss-check:has(input:disabled) { color: var(--text-faint); cursor: default; }
+.dialog p.ss-hint { color: var(--text-faint); font-size: 11.5px; }

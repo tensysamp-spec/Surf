@@ -80,6 +80,7 @@ const tools = require('./main/tools')(M);
 require('./main/autofill')(M);
 require('./main/offline')(M);
 const profiles = require('./main/profiles')(M);
+const spaceFiles = require('./main/spaces')(M);
 
 /* ------------------------------------------------------------------ */
 /* Misc IPC                                                            */
@@ -555,6 +556,8 @@ function buildMenu() {
       submenu: [
         { label: 'New Private Window', ...accel('private-window'), click: () => createPrivateWindow() },
         { label: 'New Little Window', ...accel('little-window'), click: () => createMiniWindow() },
+        { type: 'separator' },
+        { label: 'Import Space…', click: () => spaceFiles.requestImport() },
         { type: 'separator' },
         { ...profileMenu, submenu: profileMenu.submenu.map((item) => ({ ...item })) },
         { type: 'separator' },

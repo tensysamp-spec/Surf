@@ -35,6 +35,15 @@
       "!*.md",
       "!build/icon.svg"
     ],
+    "fileAssociations": [
+      {
+        "ext": "surfspace",
+        "name": "Surf Space",
+        "description": "A Surf space (pinned tabs and folders)",
+        "role": "Viewer",
+        "rank": "Owner"
+      }
+    ],
     "protocols": [
       {
         "name": "Web page",
@@ -56,6 +65,20 @@
             "LSItemContentTypes": [
               "public.html"
             ]
+          }
+        ],
+        "UTExportedTypeDeclarations": [
+          {
+            "UTTypeIdentifier": "app.browser.desktop.surfspace",
+            "UTTypeDescription": "Surf Space",
+            "UTTypeConformsTo": [
+              "public.json"
+            ],
+            "UTTypeTagSpecification": {
+              "public.filename-extension": [
+                "surfspace"
+              ]
+            }
           }
         ]
       },

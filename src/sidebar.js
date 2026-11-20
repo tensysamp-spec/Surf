@@ -675,6 +675,8 @@ function spaceMenu(space, x, y) {
     n > 1 && { label: 'Move space right', icon: 'arrow', disabled: i === n - 1, action: () => T().moveSpace(space.id, i + 1) },
     { element: themePicker(space), menuClass: 'has-picker' },
     { label: 'New space…', icon: 'plus', action: () => T().addSpace() },
+    { label: 'New space from template…', icon: 'layers', action: () => ctx.spaceShare.templateMenu(x, y) },
+    { label: 'Import space…', icon: 'download', action: () => ctx.spaceShare.importFile() },
     { separator: true },
     { header: 'Search engine' },
     { label: 'Default', checked: !space.searchEngine, action: () => T().setSpaceSearchEngine(space.id, null) },
@@ -682,6 +684,8 @@ function spaceMenu(space, x, y) {
     { separator: true },
     !U.PRIVATE && { label: space.isolated ? 'Share logins with other spaces' : 'Separate logins for this space', icon: 'user', checked: !!space.isolated, action: () => T().toggleSpaceIsolation(space.id) },
     { label: 'Share space…', icon: 'share', action: () => shareMenu(space.name, [...space.pinned, ...space.today], x, y) },
+    { label: 'Export space…', icon: 'file', action: () => ctx.spaceShare.exportSpace(space) },
+    { label: 'Save as template…', icon: 'layers', action: () => ctx.spaceShare.saveAsTemplate(space) },
     { separator: true },
     { label: 'Delete space…', icon: 'trash', danger: true, disabled: T().spaces.length < 2, action: () => T().deleteSpace(space.id) },
   ].filter(Boolean), x, y);
