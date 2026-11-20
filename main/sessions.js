@@ -44,6 +44,14 @@ module.exports = function setupSessions(M) {
     statsTimer = setTimeout(() => fs.promises.writeFile(statsFile(), JSON.stringify(stats)).catch(() => {}), 4000);
   };
 
+  // Cookie banners, HTTPS-only, fingerprinting, Global Privacy Control (main/privacy.js)
+  const privacy = require('./privacy')(M, {
+    countBanner: () => {
+      stats.banners = (stats.banners || 0) + 1;
+      saveStats();
+    },
+  });
+
   // Returns the blocked domain from the list, or null
   function blockedDomain(hostname) {
     let host = hostname.toLowerCase();
@@ -76,6 +84,8 @@ module.exports = function setupSessions(M) {
     // Private windows still block, but leave no trace in the saved privacy report
     const record = ses.isPersistent();
     ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+      const upgrade = privacy.httpsUpgrade(details, ses);
+      if (upgrade) return callback(upgrade);
       if (!shieldsEnabled) return callback({});
       let hostname;
       try {
@@ -263,6 +273,7 @@ module.exports = function setupSessions(M) {
     if (configured.has(ses)) return;
     configured.add(ses);
     setupBlocker(ses);
+    privacy.configure(ses);
     setupDownloads(ses);
     setupPermissions(ses, { remember: ses.isPersistent() });
   }

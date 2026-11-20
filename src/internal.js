@@ -88,6 +88,7 @@ async function deleteDoc(kind, id) {
 }
 
 function createView(entry) {
+  if (entry.kind === 'offline') return ctx.reader.offlineView(entry);
   if (entry.kind === 'note') return noteView(entry.refId);
   return easelView(entry.refId);
 }

@@ -3438,3 +3438,159 @@ body.dark .has-site.pinned-tile.active, body.dark .has-site.favorite.active {
 @media (prefers-reduced-motion: reduce) {
   .pinned-tile:active, .favorite:active { transform: none; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Reader controls, themes, progress, offline copies                   */
+/* ------------------------------------------------------------------ */
+
+/* Themes re-scope the app's own color variables inside the reader; "auto" inherits them */
+.reader-view[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff; --text: #1d1b24; --text-dim: rgba(29, 27, 36, 0.68); --text-faint: rgba(29, 27, 36, 0.45);
+  --line: rgba(20, 16, 40, 0.09); --glass-1: rgba(20, 16, 40, 0.045); --glass-2: rgba(20, 16, 40, 0.08);
+  --popover: #ffffff;
+}
+.reader-view[data-theme="sepia"] {
+  color-scheme: light;
+  --bg: #f6efe1; --text: #4a3b28; --text-dim: rgba(74, 59, 40, 0.75); --text-faint: rgba(74, 59, 40, 0.5);
+  --line: rgba(92, 64, 30, 0.14); --glass-1: rgba(92, 64, 30, 0.07); --glass-2: rgba(92, 64, 30, 0.12);
+  --accent: #a0562b; --accent-soft: rgba(160, 86, 43, 0.14); --popover: #fbf6ec;
+}
+.reader-view[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1b1a1f; --text: #e6e4ea; --text-dim: rgba(230, 228, 234, 0.7); --text-faint: rgba(230, 228, 234, 0.45);
+  --line: rgba(255, 255, 255, 0.1); --glass-1: rgba(255, 255, 255, 0.06); --glass-2: rgba(255, 255, 255, 0.1);
+  --popover: #2a2930;
+}
+.reader-view { position: relative; color: var(--text); transition: background var(--t); }
+.reader-view.tab-overlay { position: absolute; }
+
+/* Reading progress along the top edge */
+.reader-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 2;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  pointer-events: none;
+}
+
+/* Compact floating toolbar, styled like Surf's popovers */
+.reader-view .reader-toolbar { background: none; padding: 12px 14px; pointer-events: none; }
+.reader-pill {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--popover);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  pointer-events: auto;
+}
+.reader-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-dim);
+  font: 500 12px var(--font);
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.reader-tool svg { width: 14px; height: 14px; }
+.reader-tool:hover { background: var(--glass-2); color: var(--text); }
+.reader-tool.active { color: var(--accent); }
+.reader-tool:disabled { opacity: 0.5; }
+.reader-aa { font: 600 13px "New York", Georgia, serif; }
+
+/* Typography options */
+.reader-article.width-narrow { width: min(560px, calc(100% - 48px)); }
+.reader-article.width-medium { width: min(680px, calc(100% - 48px)); }
+.reader-article.width-wide { width: min(860px, calc(100% - 48px)); }
+.reader-article.spacing-tight { line-height: 1.45; }
+.reader-article.spacing-normal { line-height: 1.7; }
+.reader-article.spacing-loose { line-height: 1.95; }
+.reader-article.font-mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+.reader-article.font-mono .reader-body { font-size: 0.88em; }
+
+/* Reading time and word count under the byline */
+.reader-view .reader-byline { border-bottom: none; padding-bottom: 0; margin-bottom: 6px; }
+.reader-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-faint);
+  font: 12px var(--font);
+}
+.reader-stats svg { width: 13px; height: 13px; }
+.reader-offline-label {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 600 10px var(--font);
+  letter-spacing: 0.04em;
+  vertical-align: 1px;
+}
+
+/* Text & theme popover */
+.reader-popover { width: 280px; z-index: 40; }
+.reader-popover .boost-label:first-child { margin-top: 0; }
+.reader-seg { display: flex; gap: 4px; }
+.reader-seg .chip { flex: 1; justify-content: center; padding: 0 6px; }
+.reader-seg-font-serif { font-family: "New York", Georgia, serif; }
+.reader-seg-font-mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+.reader-size { align-items: center; }
+.reader-size .chip { flex: 0 0 56px; }
+.reader-size-up { font-size: 14px; }
+.reader-size-value { flex: 1; text-align: center; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.reader-themes { display: flex; gap: 10px; }
+.reader-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font: 600 11px var(--font);
+  color: var(--text-dim);
+  transition: box-shadow var(--t-fast);
+}
+.reader-swatch.active { box-shadow: 0 0 0 2px var(--popover), 0 0 0 4px var(--accent); }
+.swatch-light { background: #ffffff; border-color: rgba(20, 16, 40, 0.18); }
+.swatch-sepia { background: #f6efe1; border-color: rgba(92, 64, 30, 0.25); }
+.swatch-dark { background: #1b1a1f; border-color: rgba(255, 255, 255, 0.2); }
+.swatch-auto { background: linear-gradient(135deg, #ffffff 50%, #1b1a1f 50%); color: transparent; }
+.reader-popover .settings-row { margin-top: 12px; padding: 10px 0 0; border-top: 1px solid var(--line); border-bottom: none; }
+
+/* Offline copy shown as its own tab */
+.reader-offline > .reader-view { flex: 1; min-height: 0; border-radius: 0; }
+.reader-offline > .history-empty { margin: auto; }
+.reader-missing { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+/* Reading list: offline badge */
+.rl-offline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  align-self: flex-start;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+}
+.rl-offline svg { width: 10px; height: 10px; }

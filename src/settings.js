@@ -342,6 +342,7 @@ async function open(section = null) {
     ctx.privacy.openReport();
   });
   body.appendChild(field('Privacy report', reportBtn, 'Which trackers were blocked, and on which sites.'));
+  await ctx.privacy.renderSettings(body, { field, select, toggle });
 
   heading('Import', 'import');
   const importRow = U.el('div', 'boost-row');
