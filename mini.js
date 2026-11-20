@@ -5,10 +5,14 @@ const urlInput = document.getElementById('mini-url');
 const iconEl = document.getElementById('mini-icon');
 const promoteBtn = document.getElementById('mini-promote');
 
-const startUrl = new URLSearchParams(window.location.search).get('url');
+const query = new URLSearchParams(window.location.search);
+const startUrl = query.get('url');
+// Opened from an isolated Space: use that Space's cookie jar (main only passes those)
+const partition = query.get('partition');
 
 const webview = document.createElement('webview');
 webview.setAttribute('allowpopups', '');
+if (partition && /^persist:space-[a-z0-9]+$/i.test(partition)) webview.setAttribute('partition', partition);
 webview.setAttribute('src', startUrl || NEWTAB_URL);
 webview.className = 'active';
 document.getElementById('mini-content').appendChild(webview);

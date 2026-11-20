@@ -260,7 +260,19 @@ function ensureLive(entry) {
 function partitionFor(entryId) {
   if (U.PRIVATE_PARTITION) return U.PRIVATE_PARTITION;
   const loc = locate(entryId);
-  return loc && loc.space && loc.space.isolated ? `persist:space-${loc.space.id}` : null;
+  return loc ? spacePartition(loc.space) : null;
+}
+
+// An isolated Space's cookie jar (null = the default session)
+function spacePartition(space) {
+  if (U.PRIVATE_PARTITION) return U.PRIVATE_PARTITION;
+  return space && space.isolated ? `persist:space-${space.id}` : null;
+}
+
+// The partition of whatever the user is looking at, for fetches made on its behalf
+function activePartition() {
+  if (activeEntryId && findEntry(activeEntryId)) return partitionFor(activeEntryId);
+  return spacePartition(activeSpace());
 }
 
 function unload(entryId) {
@@ -312,6 +324,8 @@ function showEntry(id, { focus = true } = {}) {
 
 function layout(ids) {
   const leaving = displayed.filter((id) => !ids.includes(id));
+  // Snapshot tabs as they're switched away from, so their hover preview is current
+  leaving.forEach((id) => captureThumb(live.get(id)));
   ctx.media.onHide(leaving.map((id) => live.get(id)).filter(Boolean));
 
   const n = ids.length;
@@ -947,9 +961,13 @@ function hibernate() {
   if (changed) ctx.sidebar.render();
 }
 
-// Thumbnails for sidebar hover previews
+// Thumbnails for sidebar hover previews. Taken when a tab is switched away from, when a page
+// finishes loading, and now and then for the visible tab — never while the window is hidden
+// (capturing and encoding a JPEG costs battery).
+const THUMB_EVERY_MS = 60 * 1000;
 async function captureThumb(tab) {
-  if (!tab || tab.kind !== 'web' || !tab.ready || !displayed.includes(tab.entryId)) return;
+  if (!tab || tab.kind !== 'web' || !tab.ready || !displayed.includes(tab.entryId) || document.hidden) return;
+  tab.thumbAt = Date.now();
   try {
     const image = await tab.webview.capturePage();
     // 720px wide (sharp on Retina at preview size); JPEG keeps the many open-tab thumbnails light
@@ -1127,7 +1145,14 @@ function boot() {
   applyTheme(space);
   switchSpace(space.id);
   setInterval(sweepArchive, 60 * 1000);
-  setInterval(() => displayed.forEach((id) => captureThumb(live.get(id))), 10000);
+  // Refresh the visible tab's snapshot only while the user is actually looking at the window
+  setInterval(() => {
+    if (document.hidden || !document.hasFocus()) return;
+    for (const id of displayed) {
+      const tab = live.get(id);
+      if (tab && Date.now() - (tab.thumbAt || 0) >= THUMB_EVERY_MS - 1000) captureThumb(tab);
+    }
+  }, 15 * 1000);
 }
 
 ctx.tabs = {
@@ -1200,6 +1225,8 @@ ctx.tabs = {
   hibernate,
   toggleSpaceIsolation,
   partitionFor,
+  spacePartition,
+  activePartition,
   newEntry,
   applyTheme,
 };

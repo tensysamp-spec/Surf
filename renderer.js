@@ -50,13 +50,21 @@ ipcRenderer.on('open-in-new-tab', (_e, { url, background }) => {
 
 ipcRenderer.on('peek-url', (_e, url) => ctx.peek.open(url));
 
+// The cookie jar of the page a menu was opened on (Peek and others: the active tab's)
+function partitionOf(webContentsId) {
+  const tab = [...ctx.tabs.live.values()].find((t) => t.webContentsId === webContentsId);
+  return tab ? ctx.tabs.partitionFor(tab.entryId) : ctx.tabs.activePartition();
+}
+
 ipcRenderer.on('context-action', (_e, { type, url, webContentsId }) => {
   switch (type) {
     case 'new-tab': ctx.tabs.openTab(url, { activate: false }); break;
     case 'peek': ctx.peek.open(url); break;
     case 'split': ctx.tabs.splitWithUrl(url); break;
     case 'search': ctx.tabs.openTab(U.searchUrl(url)); break;
-    case 'summarize-link': ctx.ai.summarizeLink(url); break;
+    case 'summarize-link': ctx.ai.summarizeLink(url, partitionOf(webContentsId)); break;
+    // Opened from an isolated Space's tab: the little window keeps that Space's logins
+    case 'little-window': ipcRenderer.send('open-little-window', url, partitionOf(webContentsId)); break;
     case 'translate': ctx.ai.translatePage(); break;
     case 'read-aloud': ctx.speech.readActive(); break;
     case 'screenshot': ctx.screenshot.menu(); break;

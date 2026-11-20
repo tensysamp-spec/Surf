@@ -22,11 +22,11 @@ module.exports = function setupTools(M) {
   /* (a cross-origin <img> would taint the canvas)                    */
   /* ---------------------------------------------------------------- */
 
-  ipcMain.handle('fetch-icon', async (event, url) => {
+  ipcMain.handle('fetch-icon', async (event, url, partition) => {
     if (typeof url !== 'string' || !/^https?:/i.test(url)) return null;
     try {
-      // The asking window's session: private windows don't send the normal profile's cookies
-      const res = await M.sessionFor(event.sender).fetch(url, { signal: AbortSignal.timeout(6000) });
+      // The asking tab's session: private windows and isolated Spaces don't send the default cookies
+      const res = await M.sessionForPartition(event.sender, partition).fetch(url, { signal: AbortSignal.timeout(6000) });
       if (!res.ok) return null;
       const type = (res.headers.get('content-type') || 'image/png').split(';')[0];
       if (!type.startsWith('image/')) return null;

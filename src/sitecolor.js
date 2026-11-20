@@ -95,8 +95,8 @@ function dominant(img) {
   return `hsl(${hue}, ${s}%, 55%)`;
 }
 
-async function extract(url) {
-  const src = url.startsWith('data:') ? url : await ipcRenderer.invoke('fetch-icon', url);
+async function extract(url, partition) {
+  const src = url.startsWith('data:') ? url : await ipcRenderer.invoke('fetch-icon', url, partition);
   if (!src) throw new Error('icon unavailable');
   return dominant(await loadImage(src));
 }
@@ -110,7 +110,8 @@ function keyOf(url) {
 }
 
 // Returns the color now if known; otherwise starts working it out and re-renders the sidebar when done
-function get(url) {
+// (partition: the session of the tab the icon belongs to, e.g. an isolated Space)
+function get(url, partition) {
   if (!url) return null;
   const key = keyOf(url);
   if (cache.has(key)) return cache.get(key) || null;
@@ -118,7 +119,7 @@ function get(url) {
   if (failure && Date.now() < failure.until) return null;
   if (!pending.has(key)) {
     pending.add(key);
-    extract(url).then(
+    extract(url, partition).then(
       (color) => {
         pending.delete(key);
         failed.delete(key);
@@ -138,8 +139,8 @@ function get(url) {
 }
 
 // Give a sidebar element its site color (as --site), or clear it
-function apply(node, url) {
-  const color = get(url);
+function apply(node, url, partition) {
+  const color = get(url, partition);
   node.classList.toggle('has-site', !!color);
   if (color) node.style.setProperty('--site', color);
   else node.style.removeProperty('--site');

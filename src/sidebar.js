@@ -155,7 +155,7 @@ function fillPinnedTile(tile, entry) {
   tile.classList.toggle('wandered', wandered);
   tile.classList.toggle('unread', !!entry.unread);
   // Glow with the pinned site's own icon, even while browsing elsewhere in the tab
-  ctx.siteColor.apply(tile, entry.favicon || T().entryFavicon(entry));
+  ctx.siteColor.apply(tile, entry.favicon || T().entryFavicon(entry), T().partitionFor(entry.id));
 
   const icon = U.el('span', 'tile-icon');
   icon.appendChild(entryIconNode(entry, tab));
@@ -426,7 +426,7 @@ function renderFavorites() {
     tile.classList.toggle('loaded', !!tab);
     tile.title = `${T().entryTitle(fav)}\n${fav.url}`;
     tile.appendChild(U.iconElement(T().entryFavicon(fav), U.ICONS.globe));
-    ctx.siteColor.apply(tile, fav.favicon || T().entryFavicon(fav));
+    ctx.siteColor.apply(tile, fav.favicon || T().entryFavicon(fav), T().partitionFor(fav.id));
     if (tab && (tab.audible || tab.muted)) tile.appendChild(U.el('span', 'fav-audio'));
 
     tile.addEventListener('click', () => T().showEntry(fav.id));

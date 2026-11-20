@@ -20,10 +20,11 @@ function parseSource(input) {
   return null;
 }
 
-async function fetchItems(source) {
+// partition: the folder's Space's session, so an isolated Space's feeds see its own logins
+async function fetchItems(source, partition) {
   if (source.type === 'github-pulls' || source.type === 'github-issues') {
     const kind = source.type === 'github-pulls' ? 'pulls' : 'issues';
-    const res = await ipcRenderer.invoke('fetch-text', `https://api.github.com/repos/${source.repo}/${kind}?state=open&per_page=${MAX_ITEMS}`);
+    const res = await ipcRenderer.invoke('fetch-text', `https://api.github.com/repos/${source.repo}/${kind}?state=open&per_page=${MAX_ITEMS}`, partition);
     if (res.error) throw new Error(res.error);
     const data = JSON.parse(res.text);
     if (!Array.isArray(data)) throw new Error(data.message || 'Unexpected response');
@@ -32,7 +33,7 @@ async function fetchItems(source) {
       .map((i) => ({ title: `#${i.number} ${i.title}`, url: i.html_url }));
   }
 
-  const res = await ipcRenderer.invoke('fetch-text', source.url);
+  const res = await ipcRenderer.invoke('fetch-text', source.url, partition);
   if (res.error) throw new Error(res.error);
   // DOMParser never runs scripts; XML is only read for titles and links
   const doc = new DOMParser().parseFromString(res.text, 'text/xml');
@@ -66,7 +67,7 @@ async function refresh(folderId, announce = false) {
   const folder = loc.node;
   let items;
   try {
-    items = await fetchItems(folder.live);
+    items = await fetchItems(folder.live, T().spacePartition(loc.space));
   } catch (err) {
     folder.live.error = err.message;
     if (announce) U.toast(`Couldn’t refresh “${folder.name}”: ${err.message}`, { duration: 6000 });

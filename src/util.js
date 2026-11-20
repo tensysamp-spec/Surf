@@ -39,12 +39,36 @@ const store = {
       return;
     }
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(key, JSON.stringify(value, SLIM_KEYS.has(key) ? slimFavicons : undefined));
     } catch (err) {
       console.error('Could not save', key, err);
+      if (isQuotaError(err)) warnStorageFull();
     }
   },
 };
+
+// Pages can hand us huge data: URL favicons; saving those in tabs, archive and history
+// fills localStorage fast. They're kept in memory and dropped on disk (http(s) icon URLs stay).
+const SLIM_KEYS = new Set(['browser.spaces', 'browser.favorites', 'browser.archive', 'browser.history']);
+const MAX_SAVED_DATA_ICON = 8 * 1024;
+function slimFavicons(k, v) {
+  return k === 'favicon' && typeof v === 'string' && v.startsWith('data:') && v.length > MAX_SAVED_DATA_ICON ? undefined : v;
+}
+
+const isQuotaError = (err) => !!err && (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014);
+
+// A full localStorage means changes are silently lost; say so once (not on every save)
+// and offer the usual culprit, History, to clear
+let storageWarnedAt = 0;
+function warnStorageFull() {
+  if (Date.now() - storageWarnedAt < 10 * 60 * 1000) return;
+  storageWarnedAt = Date.now();
+  const library = require('./ctx').library;
+  toast('Surf couldn’t save — storage is full', {
+    duration: 10000,
+    ...(library && { action: () => library.open('history'), actionLabel: 'Clear History…' }),
+  });
+}
 
 // A Space can pick its own search engine
 let spaceEngine = null;

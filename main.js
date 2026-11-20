@@ -52,9 +52,23 @@ function sessionFor(contents) {
   return partition ? session.fromPartition(partition) : contents.session;
 }
 
+// An isolated Space's own cookie jar ("persist:space-<id>", as src/tabs.js names it).
+// Only names in that shape are accepted from a window, so a page can't pick an arbitrary session.
+const isSpacePartition = (p) => typeof p === 'string' && /^persist:space-[a-z0-9]{1,40}$/i.test(p);
+
+// The session for a request a window makes on behalf of one of its tabs: that tab's partition
+// if it's an isolated Space; a private window always uses its own in-memory partition
+function sessionForPartition(contents, partition) {
+  const win = ownerWindow(contents);
+  if (win && privatePartitions.has(win.id)) return sessionFor(contents);
+  return isSpacePartition(partition) ? session.fromPartition(partition) : sessionFor(contents);
+}
+
 const M = {
   ownerWindow,
   sessionFor,
+  sessionForPartition,
+  isSpacePartition,
   windowOf,
   isBrowserWindow,
   isPrivateWindow: (win) => !!win && privatePartitions.has(win.id),
@@ -123,11 +137,15 @@ ipcMain.on('set-traffic-lights', (event, visible) => {
   if (win && process.platform === 'darwin') win.setWindowButtonVisibility(!!visible);
 });
 
-ipcMain.on('open-little-window', (_event, url) => createMiniWindow(url));
+// From an isolated Space, the little window shares that Space's cookie jar
+ipcMain.on('open-little-window', (event, url, partition) => {
+  if (M.isPrivateWindow(ownerWindow(event.sender))) return;
+  createMiniWindow(url, isSpacePartition(partition) ? partition : null);
+});
 ipcMain.on('open-private-window', () => createPrivateWindow());
 ipcMain.on('mini-promote', (event, url) => {
-  openInMainWindow(url);
   const win = windowOf(event.sender);
+  openFromMini(win, url);
   if (win) win.close();
 });
 
@@ -197,7 +215,8 @@ function buildContextMenu(contents, params) {
   const inBrowser = isBrowserWindow(win);
   const action = (type, value) => () => {
     if (inBrowser) sendToWindow(win, 'context-action', { type, url: value, webContentsId: contents.id });
-    else if (type === 'search' || type === 'new-tab') openInMainWindow(type === 'new-tab' ? value : null, type === 'search' ? value : null);
+    else if (type === 'new-tab') openFromMini(win, value);
+    else if (type === 'search') openInMainWindow(null, value);
   };
   const template = [];
 
@@ -207,8 +226,9 @@ function buildContextMenu(contents, params) {
       ...(inBrowser ? [
         { label: 'Open Link in Peek', click: action('peek', params.linkURL) },
         { label: 'Open Link in Split View', click: action('split', params.linkURL) },
-        // Little windows use the default session, so a private window opens the link in a private tab instead
-        { label: 'Open Link in Little Window', click: contents.session.isPersistent() ? () => createMiniWindow(params.linkURL) : action('new-tab', params.linkURL) },
+        // A private window opens the link in a private tab instead (little windows are never private);
+        // the window picks the partition, so a link from an isolated Space keeps that Space's logins
+        { label: 'Open Link in Little Window', click: contents.session.isPersistent() ? action('little-window', params.linkURL) : action('new-tab', params.linkURL) },
         { label: 'Summarize Link with AI', click: action('summarize-link', params.linkURL) },
       ] : []),
       { label: 'Copy Link Address', click: () => clipboard.writeText(params.linkURL) },
@@ -376,8 +396,10 @@ function createPrivateWindow() {
   return win;
 }
 
-// "Little" window: a small, focused window for quick lookups
-function createMiniWindow(url) {
+// "Little" window: a small, focused window for quick lookups.
+// partition: an isolated Space's cookie jar, when opened from one (else the default session)
+const miniPartitions = new Map(); // little window id -> its Space partition
+function createMiniWindow(url, partition = null) {
   const win = new BrowserWindow({
     width: 560,
     height: 720,
@@ -389,13 +411,35 @@ function createMiniWindow(url) {
     trafficLightPosition: { x: 14, y: 14 },
     webPreferences: { webviewTag: true, nodeIntegration: true, contextIsolation: false },
   });
-  win.loadFile(path.join(__dirname, 'mini.html'), { query: url ? { url } : {} });
+  const query = {};
+  if (url) query.url = url;
+  if (partition) query.partition = partition;
+  win.loadFile(path.join(__dirname, 'mini.html'), { query });
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   miniWindows.add(win);
-  win.on('closed', () => miniWindows.delete(win));
+  const id = win.id;
+  if (partition) miniPartitions.set(id, partition);
+  win.on('closed', () => {
+    miniWindows.delete(win);
+    miniPartitions.delete(id);
+  });
   return win;
 }
 M.createMiniWindow = createMiniWindow;
+
+// Links leaving a little window go back to the main window — into its Space if it had one
+function openFromMini(win, url) {
+  const partition = win && miniPartitions.get(win.id);
+  if (!partition || !url) return openInMainWindow(url);
+  if (!mainWindow) createWindow();
+  const send = () => {
+    sendToMain('open-in-space', { url, spaceId: partition.slice('persist:space-'.length) });
+    mainWindow.show();
+    mainWindow.focus();
+  };
+  if (mainWindow.webContents.isLoading()) mainWindow.webContents.once('did-finish-load', send);
+  else send();
+}
 
 function openInMainWindow(url, searchText = null) {
   if (!mainWindow) createWindow();
@@ -476,7 +520,7 @@ app.on('web-contents-created', (_event, contents) => {
       if (!/^https?:\/\//i.test(url)) return { action: 'deny' };
       const win = ownerWindow(contents);
       if (!isBrowserWindow(win)) {
-        openInMainWindow(url);
+        openFromMini(win, url);
       } else if (disposition === 'new-window' && !winFeatures) {
         sendToWindow(win, 'peek-url', url);
       } else {
