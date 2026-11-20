@@ -113,6 +113,7 @@ These are the defaults; change any of them in Settings → Keyboard shortcuts.
 | Right-drag ← → ↓ ↓→ | Gestures: back, forward, new tab, close |
 | ⌘Y | History |
 | ⇧⌘J | Downloads |
+| ⇧⌘⌫ | Clear browsing data |
 | ⇧⌘L | Add to reading list |
 | ⌘, | Settings |
 | ⇧-click | Open link in Peek |
