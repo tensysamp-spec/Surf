@@ -36,6 +36,7 @@
       "**/*",
       "!dist/**",
       "!server/**",
+      "!.claude/**",
       "!*.md",
       "!build/icon.svg",
       "!build/release.config.js",
